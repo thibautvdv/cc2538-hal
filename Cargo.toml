@@ -1,8 +1,13 @@
 [package]
 name = "cc2538-hal"
 version = "0.1.0"
-authors = ["Thibaut Vandervelden <thvdveld@vub.be>"]
+keywords = ["no-std", "arm", "cortex-m", "cc2538"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
+description = "Hardware abstraction layer for the CC2538 System-On-Chip"
+
+[package.metadata.docs.rs]
+targets = ["thumbv7m-none-eabi"]
 
 [dependencies]
 cc2538-pac = { version = "0.1.0", features = ["rt"] }
