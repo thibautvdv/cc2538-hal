@@ -1,6 +1,6 @@
 [package]
 name = "cc2538-hal"
-version = "0.1.0"
+version = "0.1.1"
 keywords = ["no-std", "arm", "cortex-m", "cc2538"]
 edition = "2018"
 license = "MIT OR Apache-2.0"

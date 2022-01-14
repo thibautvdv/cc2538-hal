@@ -211,9 +211,9 @@ impl WriteRead<SevenBitAddress> for I2cMaster<Enabled> {
 
     fn write_read(
         &mut self,
-        address: SevenBitAddress,
-        bytes: &[u8],
-        buffer: &mut [u8],
+        _address: SevenBitAddress,
+        _bytes: &[u8],
+        _buffer: &mut [u8],
     ) -> Result<(), Self::Error> {
         todo!()
     }
