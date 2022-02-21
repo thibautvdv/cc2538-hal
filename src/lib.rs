@@ -1,13 +1,13 @@
 //! This crate defines the HAL for the CC2538.
 
-#![feature(generic_associated_types)]
-#![feature(crate_visibility_modifier)]
+#![no_std]
+
+#![feature(adt_const_params)]
 #![allow(dead_code)]
 #![allow(incomplete_features)]
 #![allow(unused_imports)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
-#![no_std]
 
 use cc2538_pac as pac;
 use embedded_hal as hal;

@@ -31,6 +31,12 @@ pub enum RefVoltage {
     ExternalAin6Ain7 = 0x11,
 }
 
+impl Default for RefVoltage {
+    fn default() -> Self {
+        Self::Internal
+    }
+}
+
 /// The decimation rate of the ADC.
 /// The decimation rate also determines the resolution and time required to complete a conversion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,27 +47,52 @@ pub enum DecimationRate {
     Dec512 = 0b11,
 }
 
-pub struct AdcDriver<'p> {
+impl Default for DecimationRate {
+    fn default() -> Self {
+        Self::Dec512
+    }
+}
+
+pub struct Adc<'p, const CHANNEL: AdcChannel> {
+    channel: AdcChannel,
+    reference: RefVoltage,
+    rate: DecimationRate,
     _adc: PhantomData<&'p mut SOC_ADC>,
 }
 
-impl<'p> AdcDriver<'p> {
+impl<'p, const CHANNEL: AdcChannel> Adc<'p, CHANNEL> {
+    /// Return the register block of the ADC.
     fn regs() -> &'static soc_adc::RegisterBlock {
         unsafe { &*SOC_ADC::ptr() }
     }
 
+    /// Create a new ADC.
     pub fn new(_adc: &mut SOC_ADC) -> Self {
         Self {
+            channel: CHANNEL,
+            reference: Default::default(),
+            rate: Default::default(),
             _adc: PhantomData,
         }
-    }    
+    }
 
-    pub fn get(&self, channel: AdcChannel, reference: RefVoltage, div: DecimationRate) -> u16 {
+    /// Set the voltage reference.
+    pub fn set_reference(&mut self, reference: RefVoltage) {
+        self.reference = reference;
+    }
+
+    /// Set the decimation rate.
+    pub fn set_decimation_rate(&mut self, rate: DecimationRate) {
+        self.rate = rate;
+    }
+
+    /// Get the ADC value.
+    pub fn read(&self) -> u16 {
         unsafe { Self::regs().adccon1.modify(|_, w| w.stsel().bits(0b11)) };
 
         let mut cctest_tr0 = 0;
         let mut rfcore_xreg_atest = 0;
-        if channel == AdcChannel::TemperatureSensor {
+        if self.channel == AdcChannel::TemperatureSensor {
             unsafe {
                 cctest_tr0 = (*CCTEST::ptr()).tr0.read().bits();
                 (*CCTEST::ptr()).tr0.modify(|_, w| w.adctm().set_bit());
@@ -75,15 +106,16 @@ impl<'p> AdcDriver<'p> {
         unsafe {
             Self::regs().adccon3.write(|w| {
                 w.ech()
-                    .bits(channel as u8)
+                    .bits(self.channel as u8)
                     .ediv()
-                    .bits(div as u8)
+                    .bits(self.rate as u8)
                     .eref()
-                    .bits(reference as u8)
+                    .bits(self.reference as u8)
             });
         }
 
         // Poll until end of conversion
+        // TODO(thvdveld): can we make this asynchronous?
         while !self.end_of_conversion() {}
 
         // Read conversion
@@ -91,7 +123,7 @@ impl<'p> AdcDriver<'p> {
         res |= Self::regs().adch.read().bits() << 8;
 
         // Restore radio and temperature sensor.
-        if channel == AdcChannel::TemperatureSensor {
+        if self.channel == AdcChannel::TemperatureSensor {
             unsafe {
                 (*CCTEST::ptr()).tr0.write(|w| w.bits(cctest_tr0));
                 (*RFCORE_XREG::ptr())
@@ -102,17 +134,16 @@ impl<'p> AdcDriver<'p> {
         res as u16
     }
 
-    pub fn get_converted_temperature(&self) -> u32 {
-        let val = self.get(
-            AdcChannel::TemperatureSensor,
-            RefVoltage::Internal,
-            DecimationRate::Dec512,
-        );
-
-        25_000 + ((val as u32 >> 4) - 1_422) * 10_000 / 42
-    }
-
+    // Check if the conversion is finished.
     fn end_of_conversion(&self) -> bool {
         Self::regs().adccon1.read().eoc().bit_is_set()
+    }
+}
+
+impl<'p> Adc<'p, { AdcChannel::TemperatureSensor }> {
+    /// Return a temperature value.
+    pub fn get_converted_temperature(&self) -> u32 {
+        let val = self.read();
+        25_000 + ((val as u32 >> 4) - 1_422) * 10_000 / 42
     }
 }
