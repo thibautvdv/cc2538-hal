@@ -362,11 +362,11 @@ impl Crypto<Sha256Engine> {
         state.final_digest = false;
     }
 
-    fn is_completed(&mut self) -> bool {
+    fn is_completed(&self) -> bool {
         self.aes.ctrl_int_stat.read().result_av().bit_is_set()
     }
 
-    fn is_in_use(&mut self) -> bool {
+    fn is_in_use(&self) -> bool {
         self.aes.ctrl_alg_sel.read().bits() != 0
     }
 }
