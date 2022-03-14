@@ -71,8 +71,8 @@ impl Crypto<Sha256Engine> {
             final_digest: false,
         };
 
-        debug_assert!(!data.is_empty());
-        debug_assert!(digest.len() == 32);
+        assert!(!data.is_empty());
+        assert!(digest.len() == 32);
 
         let mut offset = 0;
         let mut len = data.len();

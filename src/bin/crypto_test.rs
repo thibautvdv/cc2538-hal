@@ -1,6 +1,9 @@
 #![no_main]
 #![no_std]
 #![feature(default_alloc_error_handler)]
+#![feature(bench_black_box)]
+
+use core::hint::black_box;
 
 use cortex_m::asm;
 use cortex_m_rt as rt;
@@ -22,7 +25,7 @@ use cc2538_pac as pac;
 
 #[entry]
 fn main() -> ! {
-    rtt_init_print!();
+    rtt_init_print!(BlockIfFull);
 
     // Setup the allocator
     // let start = cortex_m_rt::heap_start() as usize;
@@ -39,6 +42,7 @@ fn inner_main() -> Result<(), &'static str> {
     let periph = pac::Peripherals::take().ok_or("unable to get peripherals")?;
 
     let mut core_periph = cortex_m::Peripherals::take().unwrap();
+    core_periph.DCB.enable_trace();
     core_periph.DWT.enable_cycle_counter();
 
     // Setup the clock
@@ -52,8 +56,6 @@ fn inner_main() -> Result<(), &'static str> {
     sys_ctrl.reset_aes();
     let mut sys_ctrl = sys_ctrl.freeze();
     sys_ctrl.clear_reset_aes();
-
-    init_dwt();
 
     let crypto = periph.AES.constrain();
     let mut sha256 = crypto.sha256_engine();
@@ -127,13 +129,17 @@ fn inner_main() -> Result<(), &'static str> {
     let mut digest = [0; 32];
 
     for (input, output) in data.iter() {
-        let start = DWT::get_cycle_count();
+        black_box(&mut digest);
+        black_box(&core_periph);
+        let start = DWT::cycle_count();
         sha256.sha256(input, &mut digest);
-        let end = DWT::get_cycle_count();
+        let end = DWT::cycle_count();
+        black_box(&core_periph);
+        black_box(&mut digest);
         rprintln!(
-            "Result: {:2x?} in {} us",
+            "Result: {:2x?} in {} cycles",
             digest,
-            end.wrapping_sub(start) / 32
+            end.wrapping_sub(start)
         );
         assert_eq!(digest, *output);
     }
@@ -143,17 +149,5 @@ fn inner_main() -> Result<(), &'static str> {
 
     loop {
         asm::nop();
-    }
-}
-
-fn init_dwt() {
-    for _ in 0..100 {
-        let start = cortex_m::peripheral::DWT::get_cycle_count() as u64;
-        for _ in 0..10_000 {
-            cortex_m::asm::nop();
-        }
-        let _ = cortex_m::peripheral::DWT::get_cycle_count() as u64 - start;
-
-        // rprintln!("DWT: {}", interval);
     }
 }
