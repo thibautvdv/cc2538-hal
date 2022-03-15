@@ -41,7 +41,7 @@ fn main() -> ! {
 }
 
 fn inner_main() -> Result<(), &'static str> {
-    let periph = pac::Peripherals::take().ok_or("unable to get peripherals")?;
+    let mut periph = pac::Peripherals::take().ok_or("unable to get peripherals")?;
 
     let mut core_periph = cortex_m::Peripherals::take().unwrap();
     core_periph.DCB.enable_trace();
@@ -60,29 +60,7 @@ fn inner_main() -> Result<(), &'static str> {
     let mut sys_ctrl = sys_ctrl.freeze();
     sys_ctrl.clear_reset_aes();
 
-    let clocks = sys_ctrl.config();
-
-    let uart0 = periph.UART0;
-    let mut ioc = periph.IOC.split();
-    let mut gpioa = periph.GPIO_A.split();
-
-    let rx_pin = gpioa.pa0.downgrade().as_uart0_rxd(&mut ioc.uartrxd_uart0);
-    let tx_pin = gpioa
-        .pa1
-        .into_alt_output_function(
-            &mut gpioa.dir,
-            &mut gpioa.afsel,
-            &mut ioc.pa1_sel,
-            &mut ioc.pa1_over,
-            OutputFunction::Uart0Txd,
-        )
-        .downgrade();
-
-    let serial = Serial::uart0(uart0, (tx_pin, rx_pin), 115200u32, clocks);
-    let (mut tx, _) = serial.split();
-
-    let crypto = periph.AES.constrain();
-    let mut sha256 = crypto.sha256_engine();
+    let mut sha256 = Crypto::new(&mut periph.AES, &mut periph.PKA).sha256_engine();
 
     let data: [(&[u8], &[u8]); 7] = [
         (
