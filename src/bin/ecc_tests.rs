@@ -57,22 +57,41 @@ fn inner_main() -> Result<(), &'static str> {
 
     let mut ecc_crypto = Crypto::new(&mut periph.AES, &mut periph.PKA).ecc_engine();
 
-    let curve = EccCurveInfo::<8>::nist_p_192();
-    let scalar = [0; 6];
-    let point = EcPoint {
+    let curve = EccCurveInfo::<8>::nist_p_256();
+    let pointa = EcPoint {
+        x: &curve.x_coef[..],
+
+        y: &curve.y_coef[..],
+    };
+
+    let pointb = EcPoint {
         x: &curve.x_coef[..],
 
         y: &curve.y_coef[..],
     };
 
     let mut result = [0u32; 16];
-    rprintln!("Start mul at {}!", DWT::cycle_count());
-    ecc_crypto.mul(&curve, &scalar[..], &point, &mut result[..]);
 
-    while ecc_crypto.is_pka_in_use() {}
+    let start = DWT::cycle_count();
+    ecc_crypto.add::<8>(&curve, &pointa, &pointb, &mut result[..]);
+    let end = DWT::cycle_count();
+    rprintln!("Result addition: {:x?} in {} cycles", result, end - start);
 
-    rprintln!("Result: {:x?}", result);
-    rprintln!("Done at {}!", DWT::cycle_count());
+    let curve = EccCurveInfo::<8>::nist_p_256();
+    let mut scalar = [0; 8];
+    scalar[0] = 6;
+    let pointa = EcPoint {
+        x: &curve.x_coef[..],
+
+        y: &curve.y_coef[..],
+    };
+
+    let mut result = [0u32; 16];
+
+    let start = DWT::cycle_count();
+    ecc_crypto.mul::<8>(&curve, &scalar, &pointa, &mut result[..]);
+    let end = DWT::cycle_count();
+    rprintln!("Result multiplication: {:x?} in {} cycles", result, end - start);
 
     loop {
         asm::nop();

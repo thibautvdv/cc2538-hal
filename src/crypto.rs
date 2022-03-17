@@ -463,7 +463,6 @@ impl PkaRam {
 
         for (i, d) in data.iter().enumerate() {
             let addr = Self::PKA_RAM_PTR + offset + i * 4;
-            rprintln!("{:0x?}", d);
             unsafe {
                 core::ptr::write_volatile(addr as *mut u32, *d);
             }
@@ -499,7 +498,7 @@ impl<'p> Crypto<'p, EccEngine> {
 
         let pka = Self::pka();
 
-        let extra_buf: u8 = 2 + SIZE as u8 % 2;
+        let extra_buf: u8 = (2 + SIZE as u8 % 2) * 4;
         let mut offset: usize = 0;
 
         // Save the address of the A vector.
@@ -517,8 +516,8 @@ impl<'p> Crypto<'p, EccEngine> {
         // Save the address of the C vector.
         pka.cptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
         // First write the x coordinate, followed by the y coordinate.
-        offset = PkaRam::write_slice(&point.x[..SIZE], offset) + extra_buf as usize;
-        offset = PkaRam::write_slice(&point.y[..SIZE], offset) + extra_buf as usize;
+        offset += PkaRam::write_slice(&point.x[..SIZE], offset) + extra_buf as usize;
+        offset += PkaRam::write_slice(&point.y[..SIZE], offset) + extra_buf as usize;
 
         // Save the address of the D vector.
         pka.dptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
@@ -531,29 +530,97 @@ impl<'p> Crypto<'p, EccEngine> {
         // Start the multiplication operation.
         pka.function.write(|w| unsafe { w.bits(0x0000d000) });
         //pka.function
-            //.write(|w| unsafe { w.sequencer_operations().bits(0b101).run().set_bit() });
+        //.write(|w| unsafe { w.sequencer_operations().bits(0b101).run().set_bit() });
         while self.is_pka_in_use() {}
 
-        PkaRam::read_slice(result, offset);
+        if pka.shift.read().bits() != 0x0 && pka.shift.read().bits() != 0x7 {
+            rprintln!("Something went wrong");
+
+            return;
+        }
+
+        let msw_val = pka.msw.read().msw_address().bits() as usize;
+        if msw_val == 0 || pka.msw.read().result_is_zero().bit_is_set() {
+            rprintln!("Result is 0");
+            return;
+        }
+
+        let len1 = msw_val + 1;
+        let len2 = pka.dptr.read().bits() as usize;
+        let len = len1 - len2;
+
+        PkaRam::read_slice(&mut result[..len], offset);
+        offset += 4 * (len + 2 + (len % 2));
+        PkaRam::read_slice(&mut result[len..][..len], offset);
     }
 
-    pub fn mul_result(&mut self) {
-        todo!();
-    }
+    pub fn add<const SIZE: usize>(
+        &mut self,
+        curve: &EccCurveInfo<SIZE>,
+        point_a: &EcPoint,
+        point_b: &EcPoint,
+        result: &mut [u32],
+    ) {
+        if self.is_pka_in_use() {
+            return;
+        }
 
-    pub fn mul_gen_pt_start(&mut self) {
-        todo!();
-    }
+        let pka = Self::pka();
 
-    pub fn mul_gen_pt_result(&mut self) {
-        todo!();
-    }
+        let extra_buf: u8 = 2 + (SIZE as u8 % 2);
+        let mut offset: usize = 0;
 
-    pub fn add_start(&mut self) {
-        todo!();
-    }
+        // Save the address of the A vector.
+        pka.aptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        // Write the scalar to it.
+        offset += PkaRam::write_slice(&point_a.x[..SIZE], offset) + 4 * extra_buf as usize;
+        offset += PkaRam::write_slice(&point_a.y[..SIZE], offset) + 4 * extra_buf as usize;
 
-    pub fn add_result(&mut self) {
-        todo!();
+
+        // Save the address of the B vector.
+        pka.bptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        // First write the primes, followed by the a and b coef.
+        offset += PkaRam::write_slice(&curve.prime[..], offset) + 4 * extra_buf as usize;
+        offset += PkaRam::write_slice(&curve.a_coef[..], offset) + 4 * extra_buf as usize;
+
+        // Save the address of the C vector.
+        pka.cptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        // First write the x coordinate, followed by the y coordinate.
+        offset += PkaRam::write_slice(&point_b.x[..SIZE], offset) + 4 * extra_buf as usize;
+        offset += PkaRam::write_slice(&point_b.y[..SIZE], offset) + 4 * extra_buf as usize;
+
+        // Save the address of the D vector.
+        pka.dptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+
+        // Set the size of the A vector.
+        //pka.alength.write(|w| unsafe { w.bits(SIZE as u32) });
+        // Set the size of the B vector.
+        pka.blength.write(|w| unsafe { w.bits(SIZE as u32) });
+
+        // Start the multiplication operation.
+        pka.function.write(|w| unsafe { w.bits(0x0000b000) });
+        //pka.function
+        //.write(|w| unsafe { w.sequencer_operations().bits(0b101).run().set_bit() });
+        while self.is_pka_in_use() {}
+
+        if pka.shift.read().bits() != 0x0 && pka.shift.read().bits() != 0x7 {
+            rprintln!("Something went wrong");
+
+            return;
+        }
+
+        let msw_val = pka.msw.read().msw_address().bits() as usize;
+        if msw_val == 0 || pka.msw.read().result_is_zero().bit_is_set() {
+            rprintln!("Result is 0");
+            return;
+        }
+
+        let len1 = msw_val + 1;
+        let len2 = pka.dptr.read().bits() as usize;
+        let len = len1 - len2;
+
+        PkaRam::read_slice(&mut result[..len], offset);
+        offset += 4 * (len + 2 + (len % 2));
+        PkaRam::read_slice(&mut result[len..][..len], offset);
     }
 }
