@@ -3,6 +3,7 @@
 #![no_std]
 
 #![feature(adt_const_params)]
+#![feature(derive_default_enum)]
 #![allow(dead_code)]
 #![allow(incomplete_features)]
 #![allow(unused_imports)]

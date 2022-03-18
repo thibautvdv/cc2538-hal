@@ -1,11 +1,24 @@
+use core::convert::TryInto;
+use core::default;
 use core::marker::PhantomData;
 
 use cc2538_pac::{aes, pka, AES, PKA};
 use rtt_target::rprintln;
 
-pub struct NotSpecified;
-pub struct Sha256Engine;
-pub struct EccEngine;
+pub struct NotSpecified {}
+
+pub struct AesEngine<Type> {
+    _type: PhantomData<Type>,
+}
+pub struct AesCtr {}
+pub struct AesCbc {}
+pub struct AesCbcMac {}
+pub struct AesEcb {}
+pub struct AesGcm {}
+pub struct AesCcm {}
+
+pub struct EccEngine {}
+pub struct Sha256Engine {}
 
 pub trait CryptoExt {
     type Parts;
@@ -71,6 +84,15 @@ impl<'p> Crypto<'p, NotSpecified> {
         }
     }
 
+    /// Use the crypto engine for AES operations.
+    pub fn aes_engine(self) -> Crypto<'p, AesEngine<NotSpecified>> {
+        Crypto {
+            _aes: PhantomData,
+            _pka: PhantomData,
+            _state: PhantomData,
+        }
+    }
+
     /// Use the crypto engine for elliptic curve operations.
     pub fn ecc_engine(self) -> Crypto<'p, EccEngine> {
         Crypto {
@@ -90,6 +112,476 @@ impl<'p> Crypto<'p, NotSpecified> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct AesKeys {
+    pub keys: [u8; 128],   // 1024 bits of memory (8 128-bit keys)
+    pub sizes: AesKeySize, // The type of keys stored
+    pub count: u8,         // How many keys are stored
+    pub start_area: u8,    // The start area in 128 bits
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum AesKeySize {
+    Key128 = 0b01,
+    Key192 = 0b10,
+    Key256 = 0b11,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum AesKey {
+    Key128([u8; 16]),
+    Key192([u8; 24]),
+    Key256([u8; 32]),
+}
+
+impl AesKeys {
+    // XXX Create a better key management system for AES
+    /// Create a correctly aligned key buffer for the AES engine.
+    pub fn create(keys: &[AesKey], sizes: AesKeySize, start_area: u8) -> Self {
+        let mut aligned = AesKeys {
+            keys: [0; 128],
+            sizes,
+            count: 0,
+            start_area,
+        };
+
+        let mut offset = 0;
+        for k in keys.iter() {
+            match k {
+                AesKey::Key128(k) => {
+                    aligned.keys[offset..offset + k.len()].copy_from_slice(k);
+                    offset += 128 / 8;
+                    aligned.count += 1;
+                }
+                AesKey::Key192(k) => {
+                    aligned.keys[offset..offset + k.len()].copy_from_slice(k);
+                    offset += 128 / 8 * 2;
+                    aligned.count += 2;
+                }
+                AesKey::Key256(k) => {
+                    aligned.keys[offset..offset + k.len()].copy_from_slice(k);
+                    offset += 128 / 8 * 2;
+                    aligned.count += 2;
+                }
+            }
+        }
+
+        aligned
+    }
+}
+
+impl<'p> Crypto<'p, AesEngine<NotSpecified>> {
+    /// Use the AES engine in CTR mode.
+    pub fn ctr_mode(self) -> Crypto<'p, AesEngine<AesCtr>> {
+        Crypto {
+            _aes: PhantomData,
+            _pka: PhantomData,
+            _state: PhantomData,
+        }
+    }
+
+    /// Use the AES engine in CBC mode.
+    pub fn cbc_mode(self) -> Crypto<'p, AesEngine<AesCbc>> {
+        Crypto {
+            _aes: PhantomData,
+            _pka: PhantomData,
+            _state: PhantomData,
+        }
+    }
+
+    /// Use the AES engine in CBC-MAC mode.
+    pub fn cbc_mac_mode(self) -> Crypto<'p, AesEngine<AesCbcMac>> {
+        Crypto {
+            _aes: PhantomData,
+            _pka: PhantomData,
+            _state: PhantomData,
+        }
+    }
+
+    /// Use the AES engine in ECB mode.
+    pub fn ecb_mode(self) -> Crypto<'p, AesEngine<AesEcb>> {
+        Crypto {
+            _aes: PhantomData,
+            _pka: PhantomData,
+            _state: PhantomData,
+        }
+    }
+
+    /// Use the AES engine in GCM mode.
+    pub fn gcm_mode(self) -> Crypto<'p, AesEngine<AesGcm>> {
+        Crypto {
+            _aes: PhantomData,
+            _pka: PhantomData,
+            _state: PhantomData,
+        }
+    }
+
+    /// Use the AES engine in CCM mode.
+    pub fn ccm_mode(self) -> Crypto<'p, AesEngine<AesCcm>> {
+        Crypto {
+            _aes: PhantomData,
+            _pka: PhantomData,
+            _state: PhantomData,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum CryptoMode {
+    StoreKeys,
+    HashAndTag,
+    Tag,
+    Hash,
+    Aes,
+}
+
+impl<'p, Type> Crypto<'p, AesEngine<Type>> {
+    /// Workaround for AES registers not retained after PM2.
+    #[inline]
+    fn workaround(&mut self) {
+        let aes = Self::aes();
+        aes.ctrl_int_cfg.write(|w| w.level().set_bit());
+        aes.ctrl_int_en
+            .write(|w| w.dma_in_done().set_bit().result_av().set_bit());
+    }
+
+    #[inline]
+    fn set_mode(&mut self, mode: CryptoMode) {
+        let aes = Self::aes();
+        match mode {
+            CryptoMode::StoreKeys => {
+                aes.ctrl_alg_sel.write(|w| w.keystore().set_bit());
+            }
+            CryptoMode::HashAndTag => {
+                aes.ctrl_alg_sel
+                    .write(|w| w.tag().set_bit().hash().set_bit());
+            }
+            CryptoMode::Tag => {
+                aes.ctrl_alg_sel.write(|w| w.tag().set_bit());
+            }
+            CryptoMode::Hash => {
+                aes.ctrl_alg_sel.write(|w| w.hash().set_bit());
+            }
+            CryptoMode::Aes => {
+                aes.ctrl_alg_sel.write(|w| w.aes().set_bit());
+            }
+        }
+    }
+
+    #[inline]
+    fn enable_dma_channel0(&mut self) {
+        Self::aes().dmac_ch0_ctrl.write(|w| w.en().set_bit());
+    }
+
+    #[inline]
+    fn set_dma_channel0_ext_addr(&mut self, addr: u32) {
+        Self::aes()
+            .dmac_ch0_extaddr
+            .write(|w| unsafe { w.addr().bits(addr) });
+    }
+
+    #[inline]
+    fn set_dma_channel0_dmalength(&mut self, length: u16) {
+        Self::aes()
+            .dmac_ch0_dmalength
+            .write(|w| unsafe { w.dmalen().bits(length) });
+    }
+
+    #[inline]
+    fn enable_dma_channel1(&mut self) {
+        Self::aes().dmac_ch1_ctrl.write(|w| w.en().set_bit());
+    }
+
+    #[inline]
+    fn set_dma_channel1_ext_addr(&mut self, addr: u32) {
+        Self::aes()
+            .dmac_ch1_extaddr
+            .write(|w| unsafe { w.addr().bits(addr) });
+    }
+
+    #[inline]
+    fn set_dma_channel1_dmalength(&mut self, length: u16) {
+        Self::aes()
+            .dmac_ch1_dmalength
+            .write(|w| unsafe { w.dmalen().bits(length) });
+    }
+
+    /// Enable the DMA path to the AES engine.
+    #[inline]
+    fn enable_dma_path(&mut self) {
+        Self::aes().ctrl_alg_sel.modify(|_, w| w.aes().set_bit());
+    }
+
+    /// Clear any outstanding events.
+    #[inline]
+    fn clear_events(&mut self) {
+        Self::aes().ctrl_int_clr.write(|w| w.result_av().set_bit());
+    }
+
+    #[inline]
+    fn is_completed(&mut self) -> bool {
+        Self::aes().ctrl_int_stat.read().result_av().bit_is_set()
+    }
+
+    /// Preload a key from the key RAM.
+    #[inline]
+    fn set_key(&mut self, key_area: u32) {
+        Self::aes()
+            .key_store_read_area
+            .modify(|_, w| unsafe { w.bits(key_area) });
+    }
+
+    /// Returns `true` when all keys are loaded into the AES engine.
+    #[inline]
+    fn key_is_set(&mut self) -> bool {
+        Self::aes().key_store_read_area.read().busy().bit_is_clear()
+    }
+
+    /// Returns `true` when there was an error when loading the key to the AES engine.
+    #[inline]
+    fn key_load_error(&mut self) -> bool {
+        Self::aes()
+            .ctrl_int_stat
+            .read()
+            .key_st_rd_err()
+            .bit_is_set()
+    }
+
+    /// Save the context of the AES operation (for example the IV or the TAG).
+    #[inline]
+    fn save_context(&mut self) {
+        Self::aes()
+            .aes_ctrl
+            .modify(|_, w| w.save_context().set_bit());
+    }
+
+    /// Set the IV in the AES engine.
+    fn write_iv(&mut self, iv: &[u8]) {
+        assert!(iv.len() == 16);
+
+        // Convert the IV to 4 u32 words.
+        let mut iv_u32: [u32; 4] = [0; 4];
+        for (i, c) in iv.chunks(4).enumerate() {
+            iv_u32[i] = u32::from_le_bytes(c.try_into().unwrap());
+        }
+
+        let aes = Self::aes();
+        unsafe {
+            aes.aes_iv_0.write(|w| w.bits(iv_u32[0]));
+            aes.aes_iv_1.write(|w| w.bits(iv_u32[1]));
+            aes.aes_iv_2.write(|w| w.bits(iv_u32[2]));
+            aes.aes_iv_3.write(|w| w.bits(iv_u32[3]));
+        }
+    }
+
+    /// Load a key into AES key RAM.
+    pub fn load_key(&mut self, aes_keys: &AesKeys) {
+        if self.is_aes_in_use() {
+            rprintln!("aes is already in use.");
+            return; // FIXME
+        }
+
+        let aes = Self::aes();
+
+        self.workaround();
+
+        // Configure the master module.
+        self.set_mode(CryptoMode::StoreKeys);
+
+        self.clear_events();
+
+        // Writing to key_store_size deletes all keys.
+        if aes.key_store_size.read().key_size().bits() != aes_keys.sizes as u8 {
+            unsafe {
+                aes.key_store_size
+                    .modify(|_, w| w.key_size().bits(aes_keys.sizes as u8));
+            }
+        }
+
+        // Free possibly already occupied key areas.
+        let areas = ((0x1 << aes_keys.count) - 1) << aes_keys.start_area;
+        unsafe { aes.key_store_written_area.write(|w| w.bits(areas)) };
+        // Enable key areas to write.
+        unsafe { aes.key_store_write_area.write(|w| w.bits(areas)) };
+
+        self.enable_dma_channel0();
+        self.set_dma_channel0_ext_addr(aes_keys.keys.as_ptr() as u32);
+        self.set_dma_channel0_dmalength((aes_keys.count << 4) as u16);
+
+        while !self.is_completed() {}
+
+        if aes.ctrl_int_stat.read().dma_bus_err().bit_is_set() {
+            // Clear the error
+            aes.ctrl_int_clr.write(|w| w.dma_bus_err().set_bit());
+            //self.disable_master_control();
+            return; // Err(CryptoError::DmaBusError);
+        }
+
+        if aes.ctrl_int_stat.read().key_st_wr_err().bit_is_set() {
+            // Clear the error
+            aes.ctrl_int_clr.write(|w| w.key_st_wr_err().set_bit());
+            //self.disable_master_control();
+            return;
+        }
+
+        //self.ack_interrupt();
+        aes.ctrl_int_clr
+            .write(|w| w.dma_in_done().set_bit().result_av().set_bit());
+        aes.ctrl_alg_sel.write(|w| unsafe { w.bits(0) });
+
+        //self.disable_master_control();
+
+        if (aes.key_store_written_area.read().bits() & areas) != areas {
+            return;
+        }
+    }
+
+    pub fn auth_crypt(
+        &mut self,
+        ctrl: impl FnOnce(&aes::RegisterBlock),
+        key_index: u32,
+        iv: Option<&[u8]>,
+        adata: &[u8],
+        data_in: &[u8],
+        data_out: &[u8],
+    ) {
+        if self.is_aes_in_use() {
+            return;
+        }
+
+        let aes = Self::aes();
+        aes.ctrl_alg_sel.modify(|_, w| w.aes().set_bit());
+
+        aes.ctrl_int_clr
+            .write(|w| w.dma_in_done().set_bit().result_av().set_bit());
+
+        self.set_key(key_index);
+        while !self.key_is_set() {}
+
+        if self.key_load_error() {
+            rprintln!("key load error");
+            return;
+        }
+
+        if let Some(iv) = iv {
+            self.write_iv(iv);
+        }
+
+        ctrl(aes);
+
+        aes.aes_c_length_0
+            .write(|w| unsafe { w.bits(data_in.len() as u32) });
+        aes.aes_c_length_1.write(|w| unsafe { w.bits(0) });
+
+        if aes.aes_ctrl.read().ccm().bit_is_set() || aes.aes_ctrl.read().gcm().bits() != 0 {
+            aes.aes_auth_length
+                .write(|w| unsafe { w.auth_length().bits(adata.len() as u32) });
+
+            if !adata.is_empty() {
+                aes.dmac_ch0_ctrl.modify(|_, w| w.en().set_bit());
+                aes.dmac_ch0_extaddr
+                    .modify(|_, w| unsafe { w.addr().bits(adata.as_ptr() as u32) });
+                aes.dmac_ch0_dmalength
+                    .modify(|_, w| unsafe { w.dmalen().bits(adata.len() as u16) });
+                while !aes.ctrl_int_stat.read().dma_in_done().bit_is_set() {}
+
+                if aes.ctrl_int_stat.read().dma_bus_err().bit_is_set() {
+                    rprintln!("dma bus error");
+                    return;
+                }
+
+                aes.ctrl_int_clr.write(|w| w.dma_in_done().set_bit());
+            }
+        }
+
+        if !data_in.is_empty() {
+            aes.dmac_ch0_ctrl.modify(|_, w| w.en().set_bit());
+            aes.dmac_ch0_extaddr
+                .modify(|_, w| unsafe { w.addr().bits(data_in.as_ptr() as u32) });
+            aes.dmac_ch0_dmalength
+                .modify(|_, w| unsafe { w.dmalen().bits(data_in.len() as u16) });
+
+            if !data_out.is_empty() {
+                aes.dmac_ch1_ctrl.modify(|_, w| w.en().set_bit());
+                aes.dmac_ch1_extaddr
+                    .modify(|_, w| unsafe { w.addr().bits(data_out.as_ptr() as u32) });
+                aes.dmac_ch1_dmalength
+                    .modify(|_, w| unsafe { w.dmalen().bits(data_out.len() as u16) });
+            }
+        }
+
+        while !(aes.ctrl_int_stat.read().dma_bus_err().bit_is_set()
+            || aes.ctrl_int_stat.read().key_st_rd_err().bit_is_set()
+            || aes.ctrl_int_stat.read().key_st_wr_err().bit_is_set()
+            || aes.ctrl_int_stat.read().result_av().bit_is_set())
+        {}
+
+        //cortex_m::asm::bkpt();
+    }
+}
+
+#[derive(Debug, Default)]
+pub enum CtrWidth {
+    #[default]
+    Width128,
+    Width256,
+}
+
+impl<'p> Crypto<'p, AesEngine<AesCcm>> {
+    const CCM_NONCE_LEN: usize = 15;
+    pub fn ccm_encrypt(
+        &mut self,
+        key_index: u32,
+        len: u8,
+        nonce: &[u8],
+        mic_len: u8,
+        adata: &[u8],
+        data_in: &[u8],
+        data_out: &mut [u8],
+    ) {
+        if self.is_aes_in_use() {
+            return;
+        }
+
+        let m = (mic_len.max(2) - 2) >> 1;
+        let l = len - 1;
+
+        let ctrl = |aes: &aes::RegisterBlock| unsafe {
+            aes.aes_ctrl.modify(|_, w| {
+                w.save_context()
+                    .set_bit()
+                    .ccm_m()
+                    .bits(m)
+                    .ccm_l()
+                    .bits(l)
+                    .ccm()
+                    .set_bit()
+                    .ctr_width()
+                    .bits(CtrWidth::Width128 as u8)
+                    .ctr()
+                    .set_bit()
+                    .direction()
+                    .set_bit()
+            });
+        };
+
+        // Prepare the IV
+        // The first part is the length of the data minus 1.
+        // The following part is the nonce.
+        // And the rest is the counter.
+        let mut iv = [0u8; 16];
+        iv[0] = len - 1;
+        iv[1..][..Self::CCM_NONCE_LEN - len as usize].copy_from_slice(nonce);
+        iv[16-len as usize..].fill_with(|| 0);
+
+        self.auth_crypt(ctrl, key_index, Some(&iv), adata, data_in, data_out);
+    }
+
+    pub fn ccm_decrypt(&mut self) {
+        todo!();
+    }
+}
+
 const BLOCK_SIZE: usize = 64;
 const OUTPUT_LEN: usize = 32;
 
@@ -104,7 +596,7 @@ pub struct Sha256State {
 }
 
 impl<'p> Crypto<'p, Sha256Engine> {
-    pub fn sha256(&mut self, data: &[u8], digest: &mut [u8]) {
+    pub fn sha256(&mut self, data: impl AsRef<[u8]>, digest: &mut impl AsMut<[u8]>) {
         let mut state = Sha256State {
             length: 0,
             state: [0; 8],
@@ -113,6 +605,9 @@ impl<'p> Crypto<'p, Sha256Engine> {
             new_digest: true,
             final_digest: false,
         };
+
+        let data = data.as_ref();
+        let digest = digest.as_mut();
 
         assert!(!data.is_empty());
         assert!(digest.len() == 32);
@@ -384,8 +879,8 @@ pub struct EccCurveInfo<'e, const SIZE: usize> {
     pub order: [u32; SIZE],
     pub a_coef: [u32; SIZE],
     pub b_coef: [u32; SIZE],
-    pub x_coef: [u32; SIZE],
-    pub y_coef: [u32; SIZE],
+    pub bp_x: [u32; SIZE],
+    pub bp_y: [u32; SIZE],
 }
 
 impl<'e, const SIZE: usize> EccCurveInfo<'e, SIZE> {
@@ -409,11 +904,11 @@ impl<'e, const SIZE: usize> EccCurveInfo<'e, SIZE> {
                 0x27D2604B, 0x3BCE3C3E, 0xCC53B0F6, 0x651D06B0, 0x769886BC, 0xB3EBBD55, 0xAA3A93E7,
                 0x5AC635D8,
             ],
-            x_coef: [
+            bp_x: [
                 0xD898C296, 0xF4A13945, 0x2DEB33A0, 0x77037D81, 0x63A440F2, 0xF8BCE6E5, 0xE12C4247,
                 0x6B17D1F2,
             ],
-            y_coef: [
+            bp_y: [
                 0x37BF51F5, 0xCBB64068, 0x6B315ECE, 0x2BCE3357, 0x7C0F9E16, 0x8EE7EB4A, 0xFE1A7F9B,
                 0x4FE342E2,
             ],
@@ -436,10 +931,10 @@ impl<'e, const SIZE: usize> EccCurveInfo<'e, SIZE> {
             b_coef: [
                 0x82ff1012, 0xf4ff0afd, 0x43a18800, 0x7cbf20eb, 0xb03090f6, 0x188da80e,
             ],
-            x_coef: [
+            bp_x: [
                 0x1e794811, 0x73f977a1, 0x6b24cdd5, 0x631011ed, 0xffc8da78, 0x07192b95,
             ],
-            y_coef: [
+            bp_y: [
                 0xb4d22831, 0x146bc9b1, 0x99def836, 0xffffffff, 0xffffffff, 0xffffffff,
             ],
         }
@@ -528,9 +1023,9 @@ impl<'p> Crypto<'p, EccEngine> {
         pka.blength.write(|w| unsafe { w.bits(SIZE as u32) });
 
         // Start the multiplication operation.
-        pka.function.write(|w| unsafe { w.bits(0x0000d000) });
-        //pka.function
-        //.write(|w| unsafe { w.sequencer_operations().bits(0b101).run().set_bit() });
+        //pka.function.write(|w| unsafe { w.bits(0x0000d000) });
+        pka.function
+            .write(|w| unsafe { w.sequencer_operations().bits(0b101).run().set_bit() });
         while self.is_pka_in_use() {}
 
         if pka.shift.read().bits() != 0x0 && pka.shift.read().bits() != 0x7 {
@@ -576,7 +1071,6 @@ impl<'p> Crypto<'p, EccEngine> {
         offset += PkaRam::write_slice(&point_a.x[..SIZE], offset) + 4 * extra_buf as usize;
         offset += PkaRam::write_slice(&point_a.y[..SIZE], offset) + 4 * extra_buf as usize;
 
-
         // Save the address of the B vector.
         pka.bptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
         // First write the primes, followed by the a and b coef.
@@ -598,9 +1092,9 @@ impl<'p> Crypto<'p, EccEngine> {
         pka.blength.write(|w| unsafe { w.bits(SIZE as u32) });
 
         // Start the multiplication operation.
-        pka.function.write(|w| unsafe { w.bits(0x0000b000) });
-        //pka.function
-        //.write(|w| unsafe { w.sequencer_operations().bits(0b101).run().set_bit() });
+        //pka.function.write(|w| unsafe { w.bits(0x0000b000) });
+        pka.function
+            .write(|w| unsafe { w.sequencer_operations().bits(0b011).run().set_bit() });
         while self.is_pka_in_use() {}
 
         if pka.shift.read().bits() != 0x0 && pka.shift.read().bits() != 0x7 {

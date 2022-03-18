@@ -59,15 +59,15 @@ fn inner_main() -> Result<(), &'static str> {
 
     let curve = EccCurveInfo::<8>::nist_p_256();
     let pointa = EcPoint {
-        x: &curve.x_coef[..],
+        x: &curve.bp_x[..],
 
-        y: &curve.y_coef[..],
+        y: &curve.bp_y[..],
     };
 
     let pointb = EcPoint {
-        x: &curve.x_coef[..],
+        x: &curve.bp_x[..],
 
-        y: &curve.y_coef[..],
+        y: &curve.bp_y[..],
     };
 
     let mut result = [0u32; 16];
@@ -81,9 +81,9 @@ fn inner_main() -> Result<(), &'static str> {
     let mut scalar = [0; 8];
     scalar[0] = 6;
     let pointa = EcPoint {
-        x: &curve.x_coef[..],
+        x: &curve.bp_x[..],
 
-        y: &curve.y_coef[..],
+        y: &curve.bp_y[..],
     };
 
     let mut result = [0u32; 16];
