@@ -57,14 +57,14 @@ fn inner_main() -> Result<(), &'static str> {
 
     let mut ecc_crypto = Crypto::new(&mut periph.AES, &mut periph.PKA).ecc_engine();
 
-    let curve = EccCurveInfo::<8>::nist_p_256();
-    let pointa = EcPoint {
+    let curve = crate::ecc::EccCurveInfo::<8>::nist_p_256();
+    let pointa = crate::ecc::EcPoint {
         x: &curve.bp_x[..],
 
         y: &curve.bp_y[..],
     };
 
-    let pointb = EcPoint {
+    let pointb = crate::ecc::EcPoint {
         x: &curve.bp_x[..],
 
         y: &curve.bp_y[..],
@@ -77,10 +77,10 @@ fn inner_main() -> Result<(), &'static str> {
     let end = DWT::cycle_count();
     rprintln!("Result addition: {:x?} in {} cycles", result, end - start);
 
-    let curve = EccCurveInfo::<8>::nist_p_256();
+    let curve = crate::ecc::EccCurveInfo::<8>::nist_p_256();
     let mut scalar = [0; 8];
     scalar[0] = 6;
-    let pointa = EcPoint {
+    let pointa = crate::ecc::EcPoint {
         x: &curve.bp_x[..],
 
         y: &curve.bp_y[..],

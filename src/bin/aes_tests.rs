@@ -61,12 +61,12 @@ fn inner_main() -> Result<(), &'static str> {
 
     //let mut store = AesKeyStore::default();
 
-    let key = AesKey::Key128([
+    let key = crate::aes_engine::keys::AesKey::Key128([
         0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00,
     ]);
 
-    let aes_keys_128 = AesKeys::create(&[key], AesKeySize::Key128, 0);
+    let aes_keys_128 = crate::aes_engine::keys::AesKeys::create(&[key], crate::aes_engine::keys::AesKeySize::Key128, 0);
     aes_crypto.load_key(&aes_keys_128);
 
     //let index = aes_crypto.load_key(&mut store, &key[..]);
