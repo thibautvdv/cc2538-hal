@@ -5,7 +5,6 @@
 
 use cortex_m::asm;
 use cortex_m_rt as rt;
-use pac::DWT;
 use rt::entry;
 
 use panic_rtt_target as _;
@@ -66,12 +65,16 @@ fn inner_main() -> Result<(), &'static str> {
         0x00,
     ]);
 
-    let aes_keys_128 = crate::aes_engine::keys::AesKeys::create(&[key], crate::aes_engine::keys::AesKeySize::Key128, 0);
+    let aes_keys_128 = crate::aes_engine::keys::AesKeys::create(
+        &[key],
+        crate::aes_engine::keys::AesKeySize::Key128,
+        0,
+    );
     aes_crypto.load_key(&aes_keys_128);
 
     //let index = aes_crypto.load_key(&mut store, &key[..]);
     let adata: [u8; 0] = [];
-    let mdata = [
+    let mut mdata = [
         0x14, 0xaa, 0xbb, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
         0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
     ];
@@ -94,22 +97,17 @@ fn inner_main() -> Result<(), &'static str> {
 
     rprintln!("{:0x?}", data_out);
 
-    //true, [> encrypt <]
-    //2, [> len_len <]
-    //0, [> key_size_index <]
-    //0, [> key_area <]
-    //{ 0x00, 0x00, 0xf0, 0xe0, 0xd0, 0xc0, 0xb0, 0xa0,
-    //0x00, 0x00, 0x00, 0x00, 0x05 }, [> nonce <]
-    //{}, [> adata <]
-    //0, [> adata_len <]
-    //{ 0x14, 0xaa, 0xbb, 0x00, 0x00, 0x01, 0x02, 0x03,
-    //0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
-    //0x0c, 0x0d, 0x0e, 0x0f }, [> mdata <]
-    //20, [> mdata_len <]
-    //0, [> mic_len <]
-    //{ 0x92, 0xe8, 0xad, 0xca, 0x53, 0x81, 0xbf, 0xd0,
-    //0x5b, 0xdd, 0xf3, 0x61, 0x09, 0x09, 0x82, 0xe6,
-    //0x2c, 0x61, 0x01, 0x4e } [> expected <]
+    aes_crypto.ccm_decrypt(
+        0,
+        2,
+        &nonce[..],
+        0,
+        &adata[..],
+        &data_out[..],
+        &mut mdata[..],
+    );
+
+    rprintln!("{:0x?}", mdata);
 
     loop {
         asm::nop();
