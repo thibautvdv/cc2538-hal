@@ -1,29 +1,30 @@
-use core::marker::PhantomData;
 use core::convert::TryInto;
+use core::marker::PhantomData;
 
 use cc2538_pac::aes;
 
 use super::Crypto;
-use super::NotSpecified;
 use super::CryptoMode;
+use super::NotSpecified;
 
 pub mod keys;
 use keys::AesKeys;
 
 pub mod ccm;
+pub mod ctr;
+
 use ccm::AesCcm;
+use ctr::AesCtr;
 
 pub struct AesEngine<Type> {
     _type: PhantomData<Type>,
 }
-pub struct AesCtr {}
 pub struct AesCbc {}
 pub struct AesCbcMac {}
 pub struct AesEcb {}
 pub struct AesGcm {}
 
-
-impl<'p> Crypto<'p, AesEngine<NotSpecified>> {
+impl<'p, Type> Crypto<'p, AesEngine<Type>> {
     /// Use the AES engine in CTR mode.
     pub fn ctr_mode(self) -> Crypto<'p, AesEngine<AesCtr>> {
         Crypto {
@@ -77,9 +78,7 @@ impl<'p> Crypto<'p, AesEngine<NotSpecified>> {
             _state: PhantomData,
         }
     }
-}
 
-impl<'p, Type> Crypto<'p, AesEngine<Type>> {
     /// Workaround for AES registers not retained after PM2.
     #[inline]
     fn workaround(&mut self) {
@@ -199,6 +198,32 @@ impl<'p, Type> Crypto<'p, AesEngine<Type>> {
             .modify(|_, w| w.save_context().set_bit());
     }
 
+    #[inline]
+    fn write_dma0(&mut self, data: &[u8]) {
+        let aes = Self::aes();
+
+        aes.dmac_ch0_ctrl.modify(|_, w| w.en().set_bit());
+        aes.dmac_ch0_extaddr
+            .modify(|_, w| unsafe { w.addr().bits(data.as_ptr() as u32) });
+        aes.dmac_ch0_dmalength
+            .modify(|_, w| unsafe { w.dmalen().bits(data.len() as u16) });
+
+        while !aes.ctrl_int_stat.read().dma_in_done().bit_is_set() {}
+    }
+
+    #[inline]
+    fn write_dma1(&mut self, data: &[u8]) {
+        let aes = Self::aes();
+
+        aes.dmac_ch1_ctrl.modify(|_, w| w.en().set_bit());
+        aes.dmac_ch1_extaddr
+            .modify(|_, w| unsafe { w.addr().bits(data.as_ptr() as u32) });
+        aes.dmac_ch1_dmalength
+            .modify(|_, w| unsafe { w.dmalen().bits(data.len() as u16) });
+
+        while !aes.ctrl_int_stat.read().dma_in_done().bit_is_set() {}
+    }
+
     /// Set the IV in the AES engine.
     fn write_iv(&mut self, iv: &[u8]) {
         assert!(iv.len() == 16);
@@ -215,6 +240,25 @@ impl<'p, Type> Crypto<'p, AesEngine<Type>> {
             aes.aes_iv_1.write(|w| w.bits(iv_u32[1]));
             aes.aes_iv_2.write(|w| w.bits(iv_u32[2]));
             aes.aes_iv_3.write(|w| w.bits(iv_u32[3]));
+        }
+    }
+
+    fn read_tag(&mut self, tag: &mut [u8]) {
+        assert!(tag.len() == 16);
+
+        let mut tag_u32 = [0u32; 4];
+
+        let aes = Self::aes();
+        tag_u32[0] = aes.aes_tag_out_0.read().bits();
+        tag_u32[1] = aes.aes_tag_out_1.read().bits();
+        tag_u32[2] = aes.aes_tag_out_2.read().bits();
+        tag_u32[3] = aes.aes_tag_out_3.read().bits();
+
+        for (i, c) in tag_u32.iter().enumerate() {
+            let b = c.to_le_bytes();
+            for j in 0..4 {
+                tag[i * 4 + j] = b[j];
+            }
         }
     }
 
@@ -279,12 +323,12 @@ impl<'p, Type> Crypto<'p, AesEngine<Type>> {
         }
     }
 
-    pub fn auth_crypt(
+    fn auth_crypt(
         &mut self,
         ctrl: impl FnOnce(&aes::RegisterBlock),
         key_index: u32,
         iv: Option<&[u8]>,
-        adata: &[u8],
+        adata: Option<&[u8]>,
         data_in: &[u8],
         data_out: &[u8],
     ) {
@@ -315,17 +359,12 @@ impl<'p, Type> Crypto<'p, AesEngine<Type>> {
             .write(|w| unsafe { w.bits(data_in.len() as u32) });
         aes.aes_c_length_1.write(|w| unsafe { w.bits(0) });
 
-        if aes.aes_ctrl.read().ccm().bit_is_set() || aes.aes_ctrl.read().gcm().bits() != 0 {
+        if let Some(adata) = adata {
             aes.aes_auth_length
                 .write(|w| unsafe { w.auth_length().bits(adata.len() as u32) });
 
             if !adata.is_empty() {
-                aes.dmac_ch0_ctrl.modify(|_, w| w.en().set_bit());
-                aes.dmac_ch0_extaddr
-                    .modify(|_, w| unsafe { w.addr().bits(adata.as_ptr() as u32) });
-                aes.dmac_ch0_dmalength
-                    .modify(|_, w| unsafe { w.dmalen().bits(adata.len() as u16) });
-                while !aes.ctrl_int_stat.read().dma_in_done().bit_is_set() {}
+                self.write_dma0(adata);
 
                 if aes.ctrl_int_stat.read().dma_bus_err().bit_is_set() {
                     return;
@@ -336,18 +375,10 @@ impl<'p, Type> Crypto<'p, AesEngine<Type>> {
         }
 
         if !data_in.is_empty() {
-            aes.dmac_ch0_ctrl.modify(|_, w| w.en().set_bit());
-            aes.dmac_ch0_extaddr
-                .modify(|_, w| unsafe { w.addr().bits(data_in.as_ptr() as u32) });
-            aes.dmac_ch0_dmalength
-                .modify(|_, w| unsafe { w.dmalen().bits(data_in.len() as u16) });
+            self.write_dma0(data_in);
 
             if !data_out.is_empty() {
-                aes.dmac_ch1_ctrl.modify(|_, w| w.en().set_bit());
-                aes.dmac_ch1_extaddr
-                    .modify(|_, w| unsafe { w.addr().bits(data_out.as_ptr() as u32) });
-                aes.dmac_ch1_dmalength
-                    .modify(|_, w| unsafe { w.dmalen().bits(data_out.len() as u16) });
+                self.write_dma1(data_out);
             }
         }
 

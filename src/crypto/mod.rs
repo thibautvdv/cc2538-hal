@@ -16,6 +16,23 @@ use sha2::*;
 
 pub struct NotSpecified {}
 
+/// Modes of the crypto engine.
+#[derive(Debug)]
+pub enum CryptoMode {
+    StoreKeys,
+    HashAndTag,
+    Tag,
+    Hash,
+    Aes,
+}
+
+#[derive(Debug, Default)]
+pub enum CtrWidth {
+    #[default]
+    Width128,
+    Width256,
+}
+
 pub trait CryptoExt {
     type Parts;
 
@@ -108,26 +125,3 @@ impl<'p> Crypto<'p, NotSpecified> {
         }
     }
 }
-
-
-
-#[derive(Debug)]
-pub enum CryptoMode {
-    StoreKeys,
-    HashAndTag,
-    Tag,
-    Hash,
-    Aes,
-}
-
-
-#[derive(Debug, Default)]
-pub enum CtrWidth {
-    #[default]
-    Width128,
-    Width256,
-}
-
-
-
-
