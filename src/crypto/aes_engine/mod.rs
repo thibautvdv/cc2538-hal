@@ -24,61 +24,7 @@ pub struct AesCbcMac {}
 pub struct AesEcb {}
 pub struct AesGcm {}
 
-impl<'p, Type> Crypto<'p, AesEngine<Type>> {
-    /// Use the AES engine in CTR mode.
-    pub fn ctr_mode(self) -> Crypto<'p, AesEngine<AesCtr>> {
-        Crypto {
-            _aes: PhantomData,
-            _pka: PhantomData,
-            _state: PhantomData,
-        }
-    }
-
-    /// Use the AES engine in CBC mode.
-    pub fn cbc_mode(self) -> Crypto<'p, AesEngine<AesCbc>> {
-        Crypto {
-            _aes: PhantomData,
-            _pka: PhantomData,
-            _state: PhantomData,
-        }
-    }
-
-    /// Use the AES engine in CBC-MAC mode.
-    pub fn cbc_mac_mode(self) -> Crypto<'p, AesEngine<AesCbcMac>> {
-        Crypto {
-            _aes: PhantomData,
-            _pka: PhantomData,
-            _state: PhantomData,
-        }
-    }
-
-    /// Use the AES engine in ECB mode.
-    pub fn ecb_mode(self) -> Crypto<'p, AesEngine<AesEcb>> {
-        Crypto {
-            _aes: PhantomData,
-            _pka: PhantomData,
-            _state: PhantomData,
-        }
-    }
-
-    /// Use the AES engine in GCM mode.
-    pub fn gcm_mode(self) -> Crypto<'p, AesEngine<AesGcm>> {
-        Crypto {
-            _aes: PhantomData,
-            _pka: PhantomData,
-            _state: PhantomData,
-        }
-    }
-
-    /// Use the AES engine in CCM mode.
-    pub fn ccm_mode(self) -> Crypto<'p, AesEngine<AesCcm>> {
-        Crypto {
-            _aes: PhantomData,
-            _pka: PhantomData,
-            _state: PhantomData,
-        }
-    }
-
+impl<'p> Crypto<'p> {
     /// Workaround for AES registers not retained after PM2.
     #[inline]
     fn workaround(&mut self) {

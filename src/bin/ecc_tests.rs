@@ -55,7 +55,7 @@ fn inner_main() -> Result<(), &'static str> {
     sys_ctrl.reset_pka();
     sys_ctrl.clear_reset_pka();
 
-    let mut ecc_crypto = Crypto::new(&mut periph.AES, &mut periph.PKA).ecc_engine();
+    let mut ecc_crypto = Crypto::new(&mut periph.AES, &mut periph.PKA);
 
     let curve = crate::ecc::EccCurveInfo::<8>::nist_p_256();
     let pointa = crate::ecc::EcPoint {

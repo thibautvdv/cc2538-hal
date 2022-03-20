@@ -3,7 +3,7 @@
 #![feature(default_alloc_error_handler)]
 #![feature(bench_black_box)]
 
-use cc2538_hal::crypto::aes_engine::ccm::{AesCcmInfo, self};
+use cc2538_hal::crypto::aes_engine::ccm::{AesCcmInfo};
 use cc2538_hal::crypto::aes_engine::keys::{AesKey, AesKeySize, AesKeys};
 use cortex_m::asm;
 use cortex_m_rt as rt;
@@ -56,9 +56,7 @@ fn inner_main() -> Result<(), &'static str> {
     sys_ctrl.reset_pka();
     sys_ctrl.clear_reset_pka();
 
-    let mut aes_crypto = Crypto::new(&mut periph.AES, &mut periph.PKA)
-        .aes_engine()
-        .ccm_mode();
+    let mut aes_crypto = Crypto::new(&mut periph.AES, &mut periph.PKA);
 
     let key = crate::aes_engine::keys::AesKey::Key128([
         0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -87,7 +85,7 @@ fn inner_main() -> Result<(), &'static str> {
 
     let ccm_info = AesCcmInfo::new(0, 2, 0).with_added_auth_data(&adata[..]);
 
-    aes_crypto.encrypt(
+    aes_crypto.ccm_encrypt(
         &ccm_info,
         &nonce[..],
         &mdata[..],
@@ -97,7 +95,7 @@ fn inner_main() -> Result<(), &'static str> {
 
     rprintln!("{:0x?}", data_out);
 
-    aes_crypto.decrypt(&ccm_info, &nonce[..], &data_out[..], &mut mdata[..]);
+    aes_crypto.ccm_decrypt(&ccm_info, &nonce[..], &data_out[..], &mut mdata[..]);
     rprintln!("{:0x?}", mdata);
 
     sys_ctrl.reset_aes();
@@ -109,7 +107,7 @@ fn inner_main() -> Result<(), &'static str> {
     ]);
     let aes_keys_128 = AesKeys::create(&[key128], AesKeySize::Key128, 0);
 
-    let mut aes = aes_crypto.ctr_mode();
+    let mut aes = aes_crypto;
     aes.load_key(&aes_keys_128);
 
     let nonce = [];
@@ -138,11 +136,11 @@ fn inner_main() -> Result<(), &'static str> {
     ];
 
     aes.load_key(&aes_keys_128);
-    aes.encrypt(0, &nonce, &ctr, &input, &mut output);
+    aes.ctr_encrypt(0, &nonce, &ctr, &input, &mut output);
 
     assert_eq!(output, expected);
 
-    aes.decrypt(
+    aes.ctr_decrypt(
         0,
         &nonce,
         &ctr,

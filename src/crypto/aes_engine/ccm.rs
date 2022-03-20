@@ -32,10 +32,10 @@ impl<'a> AesCcmInfo<'a> {
     }
 }
 
-impl<'p> Crypto<'p, AesEngine<AesCcm>> {
+impl<'p> Crypto<'p> {
     const CCM_NONCE_LEN: usize = 15;
 
-    fn crypt(
+    fn ccm_crypt(
         &mut self,
         ctrl: impl FnOnce(&aes::RegisterBlock),
         ccm_info: &AesCcmInfo,
@@ -66,7 +66,7 @@ impl<'p> Crypto<'p, AesEngine<AesCcm>> {
         );
     }
 
-    pub fn encrypt(
+    pub fn ccm_encrypt(
         &mut self,
         ccm_info: &AesCcmInfo,
         nonce: &[u8],
@@ -97,11 +97,11 @@ impl<'p> Crypto<'p, AesEngine<AesCcm>> {
             });
         };
 
-        self.crypt(ctrl, ccm_info, nonce, data_in, data_out);
+        self.ccm_crypt(ctrl, ccm_info, nonce, data_in, data_out);
         self.read_tag(tag);
     }
 
-    pub fn decrypt(
+    pub fn ccm_decrypt(
         &mut self,
         ccm_info: &AesCcmInfo,
         nonce: &[u8],
@@ -130,6 +130,6 @@ impl<'p> Crypto<'p, AesEngine<AesCcm>> {
             });
         };
 
-        self.crypt(ctrl, ccm_info, nonce, data_in, data_out);
+        self.ccm_crypt(ctrl, ccm_info, nonce, data_in, data_out);
     }
 }

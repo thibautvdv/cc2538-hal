@@ -108,7 +108,7 @@ impl PkaRam {
     }
 }
 
-impl<'p> Crypto<'p, EccEngine> {
+impl<'p> Crypto<'p> {
     pub fn mul<const SIZE: usize>(
         &mut self,
         curve: &EccCurveInfo<SIZE>,

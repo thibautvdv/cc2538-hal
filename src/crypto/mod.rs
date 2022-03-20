@@ -39,13 +39,12 @@ pub trait CryptoExt {
     fn constrain(self) -> Self::Parts;
 }
 
-pub struct Crypto<'p, State> {
+pub struct Crypto<'p> {
     _aes: PhantomData<&'p mut AES>,
     _pka: PhantomData<&'p mut PKA>,
-    _state: PhantomData<State>,
 }
 
-impl<'p, State> Crypto<'p, State> {
+impl<'p> Crypto<'p> {
     #[inline]
     /// Return a pointer to the AES registers.
     fn aes() -> &'static aes::RegisterBlock {
@@ -85,7 +84,7 @@ impl<'p, State> Crypto<'p, State> {
     //}
 }
 
-impl<'p> Crypto<'p, NotSpecified> {
+impl<'p> Crypto<'p> {
     /// Create a new crypto instance.
     pub fn new(
         #[allow(unused_variables)] aes: &'p mut AES,
@@ -94,34 +93,6 @@ impl<'p> Crypto<'p, NotSpecified> {
         Self {
             _aes: PhantomData,
             _pka: PhantomData,
-            _state: PhantomData,
-        }
-    }
-
-    /// Use the crypto engine for AES operations.
-    pub fn aes_engine(self) -> Crypto<'p, aes_engine::AesEngine<NotSpecified>> {
-        Crypto {
-            _aes: PhantomData,
-            _pka: PhantomData,
-            _state: PhantomData,
-        }
-    }
-
-    /// Use the crypto engine for elliptic curve operations.
-    pub fn ecc_engine(self) -> Crypto<'p, ecc::EccEngine> {
-        Crypto {
-            _aes: PhantomData,
-            _pka: PhantomData,
-            _state: PhantomData,
-        }
-    }
-
-    /// Use the crypto engine for SHA256 operations.
-    pub fn sha256_engine(self) -> Crypto<'p, sha2::Sha256Engine> {
-        Crypto {
-            _aes: PhantomData,
-            _pka: PhantomData,
-            _state: PhantomData,
         }
     }
 }

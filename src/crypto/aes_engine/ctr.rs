@@ -6,8 +6,8 @@ use super::Crypto;
 
 pub struct AesCtr {}
 
-impl<'p> Crypto<'p, AesEngine<AesCtr>> {
-    pub fn encrypt(
+impl<'p> Crypto<'p> {
+    pub fn ctr_encrypt(
         &mut self,
         key_index: u32,
         nonce: &[u8],
@@ -38,7 +38,7 @@ impl<'p> Crypto<'p, AesEngine<AesCtr>> {
         self.auth_crypt(ctrl, key_index, Some(&iv), None, mdata_in, mdata_out)
     }
 
-    pub fn decrypt(
+    pub fn ctr_decrypt(
         &mut self,
         key_index: u32,
         nonce: &[u8],

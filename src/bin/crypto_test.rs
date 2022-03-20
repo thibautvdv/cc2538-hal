@@ -60,7 +60,7 @@ fn inner_main() -> Result<(), &'static str> {
     let mut sys_ctrl = sys_ctrl.freeze();
     sys_ctrl.clear_reset_aes();
 
-    let mut sha256 = Crypto::new(&mut periph.AES, &mut periph.PKA).sha256_engine();
+    let mut sha256 = Crypto::new(&mut periph.AES, &mut periph.PKA);
 
     let data: [(&[u8], &[u8]); 7] = [
         (

@@ -15,7 +15,7 @@ pub struct Sha256State {
     final_digest: bool,
 }
 
-impl<'p> Crypto<'p, Sha256Engine> {
+impl<'p> Crypto<'p> {
     pub fn sha256(&mut self, data: impl AsRef<[u8]>, digest: &mut impl AsMut<[u8]>) {
         let mut state = Sha256State {
             length: 0,
