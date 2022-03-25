@@ -1,4 +1,5 @@
 use super::Crypto;
+use super::PkaRam;
 
 pub struct EccEngine {}
 
@@ -73,39 +74,6 @@ impl<'e, const SIZE: usize> EccCurveInfo<'e, SIZE> {
 pub struct EcPoint<'p> {
     pub x: &'p [u32],
     pub y: &'p [u32],
-}
-
-pub struct PkaRam {}
-
-impl PkaRam {
-    const PKA_RAM_PTR: usize = 0x4400_6000;
-    const PKA_RAM_SIZE: usize = 0x800;
-
-    /// Write a slice into the memory the PKA RAM.
-    fn write_slice(data: &[u32], offset: usize) -> usize {
-        assert!(offset + data.len() * 4 < Self::PKA_RAM_SIZE);
-
-        for (i, d) in data.iter().enumerate() {
-            let addr = Self::PKA_RAM_PTR + offset + i * 4;
-            unsafe {
-                core::ptr::write_volatile(addr as *mut u32, *d);
-            }
-        }
-
-        4 * data.len()
-    }
-
-    /// Write data form PKA RAM into a slice.
-    fn read_slice(data: &mut [u32], offset: usize) {
-        assert!(offset + data.len() * 4 < Self::PKA_RAM_SIZE);
-
-        for (i, d) in data.iter_mut().enumerate() {
-            let addr = Self::PKA_RAM_PTR + offset + i * 4;
-            unsafe {
-                *d = core::ptr::read_volatile(addr as *mut u32);
-            }
-        }
-    }
 }
 
 impl<'p> Crypto<'p> {
