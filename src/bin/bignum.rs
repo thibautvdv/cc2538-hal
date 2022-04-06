@@ -4,7 +4,6 @@
 
 use cortex_m::asm;
 use cortex_m_rt as rt;
-use pac::DWT;
 use rt::entry;
 
 use panic_rtt_target as _;
@@ -48,43 +47,36 @@ fn inner_main() -> Result<(), &'static str> {
     sys_ctrl.reset_pka();
     sys_ctrl.clear_reset_pka();
 
-    let mut ecc_crypto = Crypto::new(&mut periph.AES, &mut periph.PKA);
+    let mut crypto = Crypto::new(&mut periph.AES, &mut periph.PKA);
 
-    let curve = crate::ecc::EccCurveInfo::nist_p_256();
-    let pointa = crate::ecc::EcPoint {
-        x: curve.bp_x,
-
-        y: curve.bp_y,
-    };
-
-    let pointb = crate::ecc::EcPoint {
-        x: curve.bp_x,
-
-        y: curve.bp_y,
-    };
-
+    let mut num1 = [0u32; 4];
+    num1[0] = 4;
+    let num2 = [0xffu32; 4];
+    //num2[0] = 2;
     let mut result = [0u32; 16];
 
-    let start = DWT::cycle_count();
-    ecc_crypto.ecc_add(&curve, &pointa, &pointb, &mut result[..]).unwrap();
-    let end = DWT::cycle_count();
-    rprintln!("Result addition: {:x?} in {} cycles", result, end - start);
+    crypto.add(&num1, &num2, &mut result);
+    rprintln!("Addition: {:0x?}", result);
 
-    let curve = crate::ecc::EccCurveInfo::nist_p_256();
-    let mut scalar = [0; 8];
-    scalar[0] = 6;
-    let pointa = crate::ecc::EcPoint {
-        x: curve.bp_x,
+    crypto.sub(&num1, &num2, &mut result);
+    rprintln!("Subtract: {:0x?}", result);
 
-        y: curve.bp_y,
-    };
+    crypto.mul(&num1, &num2, &mut result);
+    rprintln!("Multiplication: {:0x?}", result);
 
-    let mut result = [0u32; 16];
+    //crypto.div(&mut num1, &mut num2, &mut result);
+    //rprintln!("Division: {:0x?}", result);
 
-    let start = DWT::cycle_count();
-    ecc_crypto.ecc_mul(&curve, &scalar, &pointa, &mut result[..]).unwrap();
-    let end = DWT::cycle_count();
-    rprintln!("Result multiplication: {:x?} in {} cycles", result, end - start);
+    crypto.modulo(&num1, &num2, &mut result);
+    rprintln!("Modulo: {:0x?}", result);
+
+    crypto.inv_modulo(&num1, &num2, &mut result);
+    rprintln!("Inverse modulo: {:0x?}", result);
+
+    let base = [0x0fu32; 4];
+    //base[0] = 2;
+    crypto.exp(&num1, &num2, &base, &mut result);
+    rprintln!("Exponentiate: {:0x?}", result);
 
     loop {
         asm::nop();

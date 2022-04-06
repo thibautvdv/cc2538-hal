@@ -42,6 +42,14 @@ pub trait CryptoExt {
     fn constrain(self) -> Self::Parts;
 }
 
+#[derive(Debug)]
+pub enum CryptoError {
+    PkaBusy,
+    AesBusy,
+    ResultIsZero,
+    PkaFailure,
+}
+
 pub struct Crypto<'p> {
     _aes: PhantomData<&'p mut AES>,
     _pka: PhantomData<&'p mut PKA>,

@@ -1,4 +1,4 @@
-use super::Crypto;
+use super::{Crypto, CryptoError};
 
 pub struct Sha256Engine {}
 
@@ -16,7 +16,7 @@ pub struct Sha256State {
 }
 
 impl<'p> Crypto<'p> {
-    pub fn sha256(&mut self, data: impl AsRef<[u8]>, digest: &mut impl AsMut<[u8]>) {
+    pub fn sha256(&mut self, data: impl AsRef<[u8]>, digest: &mut impl AsMut<[u8]>) -> Result<(), CryptoError> {
         let mut state = Sha256State {
             length: 0,
             state: [0; 8],
@@ -37,7 +37,7 @@ impl<'p> Crypto<'p> {
 
         // Check if the resource is in use
         if self.is_aes_in_use() {
-            return;
+            return Err(CryptoError::AesBusy);
         }
 
         if len > 0 && state.new_digest {
@@ -93,6 +93,8 @@ impl<'p> Crypto<'p> {
         self.finalize(&mut state);
 
         digest.copy_from_slice(unsafe { &core::mem::transmute::<[u32; 8], [u8; 32]>(state.state) });
+
+        Ok(())
     }
 
     fn new_hash(&mut self, state: &mut Sha256State) {

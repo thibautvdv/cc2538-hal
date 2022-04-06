@@ -1,6 +1,5 @@
 #![no_main]
 #![no_std]
-#![feature(default_alloc_error_handler)]
 #![feature(bench_black_box)]
 
 use core::hint::black_box;
@@ -12,12 +11,6 @@ use rt::entry;
 
 use panic_rtt_target as _;
 
-extern crate alloc;
-use alloc_cortex_m::CortexMHeap;
-
-#[global_allocator]
-static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
-
 use rtt_target::{rprintln, rtt_init_print};
 
 use cc2538_hal::{crypto::*, gpio::*, ioc::*, serial::*, sys_ctrl::*};
@@ -28,11 +21,6 @@ use core::fmt::Write;
 #[entry]
 fn main() -> ! {
     rtt_init_print!(BlockIfFull);
-
-    // Setup the allocator
-    // let start = cortex_m_rt::heap_start() as usize;
-    // let size = 4048;
-    // unsafe { ALLOCATOR.init(start, size) };
 
     match inner_main() {
         Ok(()) => cortex_m::peripheral::SCB::sys_reset(),
@@ -134,7 +122,7 @@ fn inner_main() -> Result<(), &'static str> {
         black_box(&mut digest);
         black_box(&core_periph);
         let start = DWT::cycle_count();
-        sha256.sha256(input, &mut digest);
+        sha256.sha256(input, &mut digest).unwrap();
         let end = DWT::cycle_count();
         black_box(&core_periph);
         black_box(&mut digest);

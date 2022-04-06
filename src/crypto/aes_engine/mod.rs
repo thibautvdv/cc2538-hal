@@ -108,7 +108,7 @@ impl<'p> Crypto<'p> {
     }
 
     #[inline]
-    fn is_completed(&mut self) -> bool {
+    fn is_completed(&self) -> bool {
         Self::aes().ctrl_int_stat.read().result_av().bit_is_set()
     }
 

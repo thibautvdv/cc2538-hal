@@ -1,21 +1,14 @@
 #![no_main]
 #![no_std]
-#![feature(default_alloc_error_handler)]
 #![feature(bench_black_box)]
 
-use cc2538_hal::crypto::aes_engine::ccm::{AesCcmInfo};
+use cc2538_hal::crypto::aes_engine::ccm::AesCcmInfo;
 use cc2538_hal::crypto::aes_engine::keys::{AesKey, AesKeySize, AesKeys};
 use cortex_m::asm;
 use cortex_m_rt as rt;
 use rt::entry;
 
 use panic_rtt_target as _;
-
-extern crate alloc;
-use alloc_cortex_m::CortexMHeap;
-
-#[global_allocator]
-static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
 use rtt_target::{rprintln, rtt_init_print};
 
@@ -100,6 +93,24 @@ fn inner_main() -> Result<(), &'static str> {
 
     sys_ctrl.reset_aes();
     sys_ctrl.clear_reset_aes();
+
+    const P_3_TV: [u8; 10] = [0x2b, 0x48, 0x4c, 0xd5, 0x3d, 0x74, 0xf0, 0xa6, 0xed, 0x8b];
+    let nonce = [
+        0x00, 0x00, 0xf0, 0xe0, 0xd0, 0xc0, 0xb0, 0xa0, 0x00, 0x00, 0x00, 0x00, 0x05,
+    ];
+    let mut data_out = [0; 10];
+    let mut tag = [0; 16];
+
+    let ccm_info = AesCcmInfo::new(0, 2, 0).with_added_auth_data(&[]);
+    aes_crypto.ccm_encrypt(
+        &ccm_info,
+        &nonce,
+        &P_3_TV,
+        &mut data_out[..],
+        &mut tag[..],
+    );
+
+    rprintln!("data out: {:0x?}", data_out);
 
     let key128 = AesKey::Key128([
         0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f,
