@@ -136,7 +136,9 @@ macro_rules! uart {
                 type Error = nb::Error<Error>;
 
                 fn read(&mut self) -> nb::Result<u8, Self::Error> {
-                    todo!();
+                    let uart = unsafe { &(*$UARTX::ptr()) };
+
+                    Ok(uart.dr.read().data().bits())
                 }
             }
 
