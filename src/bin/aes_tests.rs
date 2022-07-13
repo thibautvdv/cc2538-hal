@@ -102,13 +102,7 @@ fn inner_main() -> Result<(), &'static str> {
     let mut tag = [0; 16];
 
     let ccm_info = AesCcmInfo::new(0, 2, 0).with_added_auth_data(&[]);
-    aes_crypto.ccm_encrypt(
-        &ccm_info,
-        &nonce,
-        &P_3_TV,
-        &mut data_out[..],
-        &mut tag[..],
-    );
+    aes_crypto.ccm_encrypt(&ccm_info, &nonce, &P_3_TV, &mut data_out[..], &mut tag[..]);
 
     rprintln!("data out: {:0x?}", data_out);
 

@@ -934,25 +934,25 @@ impl<'p> RadioDriver<'p, RadioOn> {
             return 0;
         }
 
-         //let len = len - 2;
+        //let len = len - 2;
 
         // Don't use DMA for short messages
         //if len > 5 {
-            //self.rx_channel
-                //.set_destination_end_address(buffer.as_ptr() as u32 + len - 1);
-            //self.rx_channel.use_burst(true);
-            //self.rx_channel
-                //.set_transfer_mode(dma::TransferMode::AutoRequest);
-            //self.rx_channel.set_transfer_size(len as u8 - 1);
+        //self.rx_channel
+        //.set_destination_end_address(buffer.as_ptr() as u32 + len - 1);
+        //self.rx_channel.use_burst(true);
+        //self.rx_channel
+        //.set_transfer_mode(dma::TransferMode::AutoRequest);
+        //self.rx_channel.set_transfer_size(len as u8 - 1);
 
-            //self.rx_channel.enable();
-            //self.rx_channel.request();
+        //self.rx_channel.enable();
+        //self.rx_channel.request();
 
-            //while self.rx_channel.get_mode() != dma::TransferMode::Stop {}
+        //while self.rx_channel.get_mode() != dma::TransferMode::Stop {}
         //} else {
-            for i in 0..len {
-                buffer[i as usize] = Self::sfr_regs().rfdata.read().bits() as u8;
-            }
+        for i in 0..len {
+            buffer[i as usize] = Self::sfr_regs().rfdata.read().bits() as u8;
+        }
         //}
 
         if Self::xreg_regs().fsmstat1.read().fifop().bit_is_set() {

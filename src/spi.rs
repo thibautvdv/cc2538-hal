@@ -29,85 +29,89 @@ macro_rules! spi {
     (
         $spi:ident
     ) => {
-impl Spi<$spi, Disabled> {
-    pub fn as_master(self) -> Self {
-        unsafe { self.ssi.cr1.write_with_zero(|w| w) };
-        self
-    }
+        impl Spi<$spi, Disabled> {
+            pub fn as_master(self) -> Self {
+                unsafe { self.ssi.cr1.write_with_zero(|w| w) };
+                self
+            }
 
-    pub fn as_slave(self) -> Self {
-        self.ssi.cr1.modify(|_, w| w.ms().set_bit());
-        self
-    }
+            pub fn as_slave(self) -> Self {
+                self.ssi.cr1.modify(|_, w| w.ms().set_bit());
+                self
+            }
 
-    /// Don't drive the output.
-    /// This is only relevant in slave mode.
-    pub fn disable_output(self) -> Self {
-        self.ssi.cr1.modify(|_, w| w.sod().set_bit());
-        self
-    }
+            /// Don't drive the output.
+            /// This is only relevant in slave mode.
+            pub fn disable_output(self) -> Self {
+                self.ssi.cr1.modify(|_, w| w.sod().set_bit());
+                self
+            }
 
-    pub fn set_clock_source(self, clock_source: ClockSource) -> Self {
-        unsafe { self.ssi.cc.modify(|_, w| w.cs().bits(clock_source as u8)) };
-        self
-    }
+            pub fn set_clock_source(self, clock_source: ClockSource) -> Self {
+                unsafe { self.ssi.cc.modify(|_, w| w.cs().bits(clock_source as u8)) };
+                self
+            }
 
-    pub fn set_bit_rate(self, bit_rate: u32, clock_config: ClockConfig) -> Self {
-        let div = 2 * bit_rate;
-        let scr = (clock_config.sys_freq() + div - 1)/div;
-        let scr = core::cmp::min(core::cmp::max(scr, 1), 256) - 1;
+            pub fn set_bit_rate(self, bit_rate: u32, clock_config: ClockConfig) -> Self {
+                let div = 2 * bit_rate;
+                let scr = (clock_config.sys_freq() + div - 1) / div;
+                let scr = core::cmp::min(core::cmp::max(scr, 1), 256) - 1;
 
-        unsafe { self.ssi.cpsr.modify(|_, w| w.cpsdvsr().bits(2)); }
-        unsafe { self.ssi.cr0.modify(|_, w| w.scr().bits(scr as u8)); }
+                unsafe {
+                    self.ssi.cpsr.modify(|_, w| w.cpsdvsr().bits(2));
+                }
+                unsafe {
+                    self.ssi.cr0.modify(|_, w| w.scr().bits(scr as u8));
+                }
 
+                self
+            }
 
-        self
-    }
-
-    pub fn enable(self) -> Spi<$spi, Enabled> {
-        // 8-bit data transfer
-        unsafe { self.ssi.cr0.modify(|_, w| w.dss().bits(0b0111)) };
-        self.ssi.cr1.modify(|_, w| w.sse().set_bit());
-        Spi {
-            ssi: self.ssi,
-            _state: PhantomData,
+            pub fn enable(self) -> Spi<$spi, Enabled> {
+                // 8-bit data transfer
+                unsafe { self.ssi.cr0.modify(|_, w| w.dss().bits(0b0111)) };
+                self.ssi.cr1.modify(|_, w| w.sse().set_bit());
+                Spi {
+                    ssi: self.ssi,
+                    _state: PhantomData,
+                }
+            }
         }
-    }
-}
 
-impl Spi<$spi, Enabled> {
-    pub fn is_busy(&self) -> bool {
-        self.ssi.sr.read().bsy().bit_is_set()
-    }
+        impl Spi<$spi, Enabled> {
+            pub fn is_busy(&self) -> bool {
+                self.ssi.sr.read().bsy().bit_is_set()
+            }
 
-    pub fn is_receive_fifo_full(&self) -> bool {
-        self.ssi.sr.read().rff().bit_is_set()
-    }
+            pub fn is_receive_fifo_full(&self) -> bool {
+                self.ssi.sr.read().rff().bit_is_set()
+            }
 
-    pub fn is_receive_fifo_empty(&self) -> bool {
-        !self.ssi.sr.read().rne().bit_is_set()
-    }
+            pub fn is_receive_fifo_empty(&self) -> bool {
+                !self.ssi.sr.read().rne().bit_is_set()
+            }
 
-    pub fn is_send_fifo_full(&self) -> bool {
-        !self.ssi.sr.read().tnf().bit_is_set()
-    }
+            pub fn is_send_fifo_full(&self) -> bool {
+                !self.ssi.sr.read().tnf().bit_is_set()
+            }
 
-    pub fn is_send_fifo_empty(&self) -> bool {
-        self.ssi.sr.read().tfe().bit_is_set()
-    }
+            pub fn is_send_fifo_empty(&self) -> bool {
+                self.ssi.sr.read().tfe().bit_is_set()
+            }
 
-    pub fn read_data(&self) -> u16 {
-        (self.ssi.dr.read().bits() & 0x00ff) as u16
-    }
+            pub fn read_data(&self) -> u16 {
+                (self.ssi.dr.read().bits() & 0x00ff) as u16
+            }
 
-    pub fn write(&self, data: &[u8]) {
-        for b in data.iter() {
-            while self.is_send_fifo_full() {}
-            unsafe { self.ssi.dr.write(|w| w.data().bits(*b as u16)); }
+            pub fn write(&self, data: &[u8]) {
+                for b in data.iter() {
+                    while self.is_send_fifo_full() {}
+                    unsafe {
+                        self.ssi.dr.write(|w| w.data().bits(*b as u16));
+                    }
+                }
+            }
         }
-    }
-}
-        
     };
 }
 
@@ -126,7 +130,7 @@ pub trait SpiSsi1Ext {
 
 pub struct Spi<SSI, STATE> {
     ssi: SSI,
-    _state: PhantomData<STATE>
+    _state: PhantomData<STATE>,
 }
 
 impl SpiSsi0Ext for SSI0 {

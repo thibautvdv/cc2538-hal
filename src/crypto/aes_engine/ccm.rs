@@ -74,7 +74,6 @@ impl<'p> Crypto<'p> {
         data_out: &mut [u8],
         tag: &mut [u8],
     ) {
-
         let m = (ccm_info.auth_field_size.max(2) - 2) >> 1;
         let l = ccm_info.len_field_size - 1;
 

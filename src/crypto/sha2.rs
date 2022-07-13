@@ -16,7 +16,11 @@ pub struct Sha256State {
 }
 
 impl<'p> Crypto<'p> {
-    pub fn sha256(&mut self, data: impl AsRef<[u8]>, digest: &mut impl AsMut<[u8]>) -> Result<(), CryptoError> {
+    pub fn sha256(
+        &mut self,
+        data: impl AsRef<[u8]>,
+        digest: &mut impl AsMut<[u8]>,
+    ) -> Result<(), CryptoError> {
         let mut state = Sha256State {
             length: 0,
             state: [0; 8],

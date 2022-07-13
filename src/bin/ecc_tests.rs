@@ -66,7 +66,9 @@ fn inner_main() -> Result<(), &'static str> {
     let mut result = [0u32; 16];
 
     let start = DWT::cycle_count();
-    ecc_crypto.ecc_add(&curve, &pointa, &pointb, &mut result[..]).unwrap();
+    ecc_crypto
+        .ecc_add(&curve, &pointa, &pointb, &mut result[..])
+        .unwrap();
     let end = DWT::cycle_count();
     rprintln!("Result addition: {:x?} in {} cycles", result, end - start);
 
@@ -82,9 +84,15 @@ fn inner_main() -> Result<(), &'static str> {
     let mut result = [0u32; 16];
 
     let start = DWT::cycle_count();
-    ecc_crypto.ecc_mul(&curve, &scalar, &pointa, &mut result[..]).unwrap();
+    ecc_crypto
+        .ecc_mul(&curve, &scalar, &pointa, &mut result[..])
+        .unwrap();
     let end = DWT::cycle_count();
-    rprintln!("Result multiplication: {:x?} in {} cycles", result, end - start);
+    rprintln!(
+        "Result multiplication: {:x?} in {} cycles",
+        result,
+        end - start
+    );
 
     loop {
         asm::nop();

@@ -1,9 +1,7 @@
 //! This crate defines the HAL for the CC2538.
 
 #![no_std]
-
 #![feature(adt_const_params)]
-
 #![allow(dead_code)]
 #![allow(incomplete_features)]
 #![allow(unused_imports)]
@@ -20,8 +18,8 @@ pub mod crypto;
 pub mod delay;
 pub mod dma;
 pub mod gpio;
-pub mod ioc;
 pub mod i2c;
+pub mod ioc;
 pub mod radio;
 pub mod rng;
 pub mod serial;
@@ -70,5 +68,3 @@ static FLASH_CCA: FlashCca = FlashCca {
     _flash_start_addr: 0x0020_0000,
     _padding: 0xFFFF_FFFF,
 };
-
-

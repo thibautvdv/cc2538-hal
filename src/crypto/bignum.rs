@@ -306,7 +306,8 @@ impl<'p> Crypto<'p> {
         // Save the address of the D vector.
         pka.dptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
 
-        pka.alength.write(|w| unsafe { w.bits(exponent.len() as u32) });
+        pka.alength
+            .write(|w| unsafe { w.bits(exponent.len() as u32) });
         pka.blength
             .write(|w| unsafe { w.bits(modulus.len() as u32) });
 
