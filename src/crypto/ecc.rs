@@ -88,7 +88,7 @@ impl<'p> Crypto<'p> {
         point: &EcPoint,
         result: &mut [u32],
     ) -> Result<(), CryptoError> {
-        if self.is_pka_in_use() {
+        if Self::is_pka_in_use() {
             return Err(CryptoError::PkaBusy);
         }
 
@@ -127,7 +127,7 @@ impl<'p> Crypto<'p> {
         //pka.function.write(|w| unsafe { w.bits(0x0000d000) });
         pka.function
             .write(|w| unsafe { w.sequencer_operations().bits(0b101).run().set_bit() });
-        while self.is_pka_in_use() {}
+        while Self::is_pka_in_use() {}
 
         if pka.shift.read().bits() != 0x0 && pka.shift.read().bits() != 0x7 {
             return Err(CryptoError::PkaFailure);
@@ -156,7 +156,7 @@ impl<'p> Crypto<'p> {
         point_b: &EcPoint,
         result: &mut [u32],
     ) -> Result<(), CryptoError> {
-        if self.is_pka_in_use() {
+        if Self::is_pka_in_use() {
             return Err(CryptoError::PkaBusy);
         }
 
@@ -195,7 +195,7 @@ impl<'p> Crypto<'p> {
         //pka.function.write(|w| unsafe { w.bits(0x0000b000) });
         pka.function
             .write(|w| unsafe { w.sequencer_operations().bits(0b011).run().set_bit() });
-        while self.is_pka_in_use() {}
+        while Self::is_pka_in_use() {}
 
         if pka.shift.read().bits() != 0x0 && pka.shift.read().bits() != 0x7 {
             return Err(CryptoError::PkaFailure);

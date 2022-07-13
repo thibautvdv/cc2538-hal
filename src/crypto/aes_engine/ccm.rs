@@ -43,7 +43,7 @@ impl<'p> Crypto<'p> {
         data_in: &[u8],
         data_out: &mut [u8],
     ) {
-        if self.is_aes_in_use() {
+        if Self::is_aes_in_use() {
             return;
         }
 

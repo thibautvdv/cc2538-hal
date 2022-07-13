@@ -40,7 +40,7 @@ impl<'p> Crypto<'p> {
         let mut len = data.len();
 
         // Check if the resource is in use
-        if self.is_aes_in_use() {
+        if Self::is_aes_in_use() {
             return Err(CryptoError::AesBusy);
         }
 
@@ -169,7 +169,7 @@ impl<'p> Crypto<'p> {
         }
 
         // Wait for the completion of the operation.
-        while !self.is_aes_completed() {}
+        while !Self::is_aes_completed() {}
 
         // Clear the interrupt.
         aes.ctrl_int_clr
@@ -257,7 +257,7 @@ impl<'p> Crypto<'p> {
         }
 
         // Wait for the completion of the operation.
-        while !self.is_aes_completed() {}
+        while !Self::is_aes_completed() {}
 
         // Read the digest
         state.state[0] = aes.hash_digest_a.read().bits();

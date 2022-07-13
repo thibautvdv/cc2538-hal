@@ -75,17 +75,17 @@ impl<'p> Crypto<'p> {
     }
 
     /// Check if the AES resource is in use.
-    pub fn is_aes_in_use(&self) -> bool {
+    pub fn is_aes_in_use() -> bool {
         Self::aes().ctrl_alg_sel.read().bits() != 0
     }
 
     /// Check if the PKA resource is in use.
-    pub fn is_pka_in_use(&self) -> bool {
+    pub fn is_pka_in_use() -> bool {
         Self::pka().function.read().run().bit_is_set()
     }
 
     /// Check if the result of the AES operation is available.
-    fn is_aes_completed(&self) -> bool {
+    fn is_aes_completed() -> bool {
         Self::aes().ctrl_int_stat.read().result_av().bit_is_set()
     }
 

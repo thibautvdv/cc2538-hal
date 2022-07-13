@@ -15,7 +15,7 @@ impl<'p> Crypto<'p> {
         mdata_in: &[u8],
         mdata_out: &mut [u8],
     ) {
-        if self.is_aes_in_use() {
+        if Self::is_aes_in_use() {
             return;
         }
 
@@ -46,7 +46,7 @@ impl<'p> Crypto<'p> {
         mdata_in: &[u8],
         mdata_out: &mut [u8],
     ) {
-        if self.is_aes_in_use() {
+        if Self::is_aes_in_use() {
             return;
         }
 

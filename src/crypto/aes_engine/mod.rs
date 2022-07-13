@@ -210,7 +210,7 @@ impl<'p> Crypto<'p> {
 
     /// Load a key into AES key RAM.
     pub fn load_key(&mut self, aes_keys: &AesKeys) {
-        if self.is_aes_in_use() {
+        if Self::is_aes_in_use() {
             return; // FIXME
         }
 
@@ -278,7 +278,7 @@ impl<'p> Crypto<'p> {
         data_in: &[u8],
         data_out: &[u8],
     ) {
-        if self.is_aes_in_use() {
+        if Self::is_aes_in_use() {
             return;
         }
 
