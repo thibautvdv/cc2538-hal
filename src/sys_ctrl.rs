@@ -9,13 +9,13 @@ use cortex_m::asm;
 use crate::pac::{sys_ctrl, SYS_CTRL};
 use crate::time::*;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Osc {
     Osc32Mhz,
     Osc16Mhz,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClockDiv {
     Clock32Mhz = 0b000,
     Clock16Mhz = 0b001,

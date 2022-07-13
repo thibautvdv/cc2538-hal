@@ -15,7 +15,7 @@ use crate::dma::{self, Dma, Enabled, TransferMode};
 
 use crate::time::*;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorEvent {
     NoLock,
     RxAbo,
@@ -42,7 +42,7 @@ impl ErrorEvent {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Event {
     TxAckDone,
     TxDone,
@@ -82,7 +82,7 @@ impl Event {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RadioError {
     PayloadTooBig,
     ChannelNotClear,
@@ -134,7 +134,7 @@ pub enum RxMode {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Channel {
     Channel11 = 11,
     Channel12,

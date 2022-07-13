@@ -360,13 +360,13 @@ impl ChannelControlWord {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Priority {
     Default,
     High,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransferMode {
     Stop = 0x0,
     Basic = 0x1,
@@ -400,7 +400,7 @@ impl From<u32> for TransferMode {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AddressIncrement {
     Increment8bit = 0x0,
     Increment16bit = 0x1,
@@ -414,7 +414,7 @@ impl Default for AddressIncrement {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataSize {
     Data8bit = 0x0,
     Data16bit = 0x1,
@@ -427,7 +427,7 @@ impl Default for DataSize {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Arbitration {
     Transfer1 = 0x0,
     Transfer2 = 0x1,
@@ -457,7 +457,7 @@ impl From<ChannelControlWord> for u32 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DmaState {
     Idle = 0x0,
     ReadingControllerData = 0x1,
