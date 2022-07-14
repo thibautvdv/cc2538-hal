@@ -65,10 +65,15 @@ impl<const MAX_LEN: usize> BigNum<MAX_LEN> {
 
     /// Addition and subtraction of three big numbers.
     /// A + C - B
-    pub fn add_sub(&self, c: &BigNum<MAX_LEN>, b: &BigNum<MAX_LEN>) -> BigNum<MAX_LEN> {
+    pub fn add_sub(
+        &self,
+        c: &BigNum<MAX_LEN>,
+        b: &BigNum<MAX_LEN>,
+    ) -> Result<BigNum<MAX_LEN>, CryptoError> {
         let mut tmp = BigNum::new(self.size);
-        Crypto::add_sub(self.inner(), c.inner(), b.inner(), tmp.inner_mut());
-        tmp
+        let len = Crypto::add_sub(self.inner(), c.inner(), b.inner(), tmp.inner_mut())?;
+        tmp.set_size(len);
+        Ok(tmp)
     }
 
     /// Multiplication of two big numbers.
@@ -95,10 +100,10 @@ impl<const MAX_LEN: usize> BigNum<MAX_LEN> {
     }
 
     /// Inverse modulus of two big numbers.
-    pub fn inv_mod<const L: usize>(&self, rhs: &BigNum<L>) -> BigNum<MAX_LEN> {
+    pub fn inv_mod<const L: usize>(&self, rhs: &BigNum<L>) -> Result<BigNum<MAX_LEN>, CryptoError> {
         let mut tmp = BigNum::new(rhs.size + 1);
-        Crypto::inv_modulo(self.inner(), rhs.inner(), tmp.inner_mut());
-        tmp
+        Crypto::inv_modulo(self.inner(), rhs.inner(), tmp.inner_mut())?;
+        Ok(tmp)
     }
 
     /// Exponentiation with big numbers.
@@ -119,28 +124,40 @@ impl<const MAX_LEN: usize> BigNum<MAX_LEN> {
 
 impl<'p> Crypto<'p> {
     #[inline]
-    fn set_a_ptr(&mut self, offset: u32) {
-        Self::pka().aptr.write(|w| unsafe { w.bits(offset) });
+    fn set_a_ptr(offset: usize) {
+        Self::pka().aptr.write(|w| unsafe { w.bits(offset as u32) });
     }
 
     #[inline]
-    fn set_b_ptr(&mut self, offset: u32) {
-        Self::pka().bptr.write(|w| unsafe { w.bits(offset) });
+    fn set_b_ptr(offset: usize) {
+        Self::pka().bptr.write(|w| unsafe { w.bits(offset as u32) });
     }
 
     #[inline]
-    fn set_c_ptr(&mut self, offset: u32) {
-        Self::pka().cptr.write(|w| unsafe { w.bits(offset) });
+    fn set_c_ptr(offset: usize) {
+        Self::pka().cptr.write(|w| unsafe { w.bits(offset as u32) });
     }
 
     #[inline]
-    fn set_d_ptr(&mut self, offset: u32) {
-        Self::pka().dptr.write(|w| unsafe { w.bits(offset) });
+    fn set_d_ptr(offset: usize) {
+        Self::pka().dptr.write(|w| unsafe { w.bits(offset as u32) });
+    }
+
+    #[inline]
+    fn set_a_length(length: usize) {
+        Self::pka()
+            .alength
+            .write(|w| unsafe { w.alength().bits(length as u16) });
+    }
+
+    #[inline]
+    fn set_b_length(length: usize) {
+        Self::pka()
+            .blength
+            .write(|w| unsafe { w.blength().bits(length as u16) });
     }
 
     /// Addition of two bignums.
-    ///
-    /// The length of the `result` should be max(num1, num2) + 1.
     pub fn add(
         num1: impl AsRef<[u32]>,
         num2: impl AsRef<[u32]>,
@@ -158,21 +175,19 @@ impl<'p> Crypto<'p> {
         let mut offset: usize = 0;
 
         // Save the address of the A vector.
-        pka.aptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
-        PkaRam::write_slice(num1, offset);
-        offset += 4 * (num1.len() + num1.len() % 2);
+        Self::set_a_ptr(offset);
+        offset += PkaRam::write_slice(num1, offset);
 
         // Save the address of the B vector.
-        pka.bptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
-        PkaRam::write_slice(num2, offset);
-        offset += 4 * (num2.len() + num2.len() % 2 + 2);
+        Self::set_b_ptr(offset >> 2);
+        offset += PkaRam::write_slice(num2, offset);
 
         // Save the address of the C vector.
-        pka.cptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        Self::set_c_ptr(offset >> 2);
         let result_start = offset >> 2;
 
-        pka.alength.write(|w| unsafe { w.bits(num1.len() as u32) });
-        pka.blength.write(|w| unsafe { w.bits(num2.len() as u32) });
+        Self::set_a_length(num1.len());
+        Self::set_b_length(num2.len());
 
         // Start the add operation.
         pka.function.write(|w| w.add().set_bit().run().set_bit());
@@ -211,21 +226,19 @@ impl<'p> Crypto<'p> {
         let mut offset: usize = 0;
 
         // Save the address of the A vector.
-        pka.aptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
-        PkaRam::write_slice(num1, offset);
-        offset += 4 * (num1.len() + num1.len() % 2);
+        Self::set_a_ptr(offset);
+        offset += PkaRam::write_slice(num1, offset);
 
         // Save the address of the B vector.
-        pka.bptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
-        PkaRam::write_slice(num2, offset);
-        offset += 4 * (num2.len() + num2.len() % 2 + 2);
+        Self::set_b_ptr(offset >> 2);
+        offset += PkaRam::write_slice(num2, offset);
 
         // Save the address of the C vector.
-        pka.cptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        Self::set_c_ptr(offset >> 2);
         let result_start = offset >> 2;
 
-        pka.alength.write(|w| unsafe { w.bits(num1.len() as u32) });
-        pka.blength.write(|w| unsafe { w.bits(num2.len() as u32) });
+        Self::set_a_length(num1.len());
+        Self::set_b_length(num2.len());
 
         // Start the subtract operation.
         pka.function
@@ -248,8 +261,57 @@ impl<'p> Crypto<'p> {
     /// Addition and subtraction of three bignums.
     ///
     /// A + C - B -> D
-    pub fn add_sub(a: &[u32], c: &[u32], b: &[u32], result: &mut [u32]) {
-        todo!()
+    pub fn add_sub(
+        a: impl AsRef<[u32]>,
+        c: impl AsRef<[u32]>,
+        b: impl AsRef<[u32]>,
+        result: &mut (impl AsMut<[u32]> + ?Sized),
+    ) -> Result<usize, CryptoError> {
+        let a = a.as_ref();
+        let b = b.as_ref();
+        let c = c.as_ref();
+        let result = result.as_mut();
+
+        if Self::is_pka_in_use() {
+            return Err(CryptoError::PkaBusy);
+        }
+
+        let pka = Self::pka();
+        let mut offset: usize = 0;
+
+        // Save the address of the A vector.
+        Self::set_a_ptr(offset);
+        offset += PkaRam::write_slice(a, offset);
+
+        // Save the address of the B vector.
+        Self::set_b_ptr(offset >> 2);
+        offset += PkaRam::write_slice(b, offset);
+
+        // Save the address of the C vector.
+        Self::set_c_ptr(offset >> 2);
+        offset += PkaRam::write_slice(c, offset);
+
+        // Save the address of the D vector.
+        Self::set_d_ptr(offset >> 2);
+        let result_start = offset >> 2;
+
+        Self::set_a_length(a.len());
+
+        // Start the subtract operation.
+        pka.function.write(|w| w.addsub().set_bit().run().set_bit());
+        while Self::is_pka_in_use() {}
+
+        let result_end = pka.msw.read().msw_address().bits() as usize;
+
+        if pka.msw.read().result_is_zero().bit_is_set() {
+            result.fill_with(|| 0);
+            return Ok(0);
+        }
+
+        let len = result_end - result_start + 1;
+
+        PkaRam::read_slice(&mut result[..len], result_start << 2);
+        Ok(len)
     }
 
     /// Multiplication of two bignums.
@@ -273,21 +335,19 @@ impl<'p> Crypto<'p> {
         let mut offset: usize = 0;
 
         // Save the address of the A vector.
-        pka.aptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
-        PkaRam::write_slice(num1, offset);
-        offset += 4 * (num1.len() + num1.len() % 2);
+        Self::set_a_ptr(offset);
+        offset += PkaRam::write_slice(num1, offset);
 
         // Save the address of the B vector.
-        pka.bptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
-        PkaRam::write_slice(num2, offset);
-        offset += 4 * (num2.len() + num2.len() % 2 + 2);
+        Self::set_b_ptr(offset >> 2);
+        offset += PkaRam::write_slice(num2, offset);
 
         // Save the address of the C vector.
-        pka.cptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        Self::set_c_ptr(offset >> 2);
         let result_start = offset >> 2;
 
-        pka.alength.write(|w| unsafe { w.bits(num1.len() as u32) });
-        pka.blength.write(|w| unsafe { w.bits(num2.len() as u32) });
+        Self::set_a_length(num1.len());
+        Self::set_b_length(num2.len());
 
         // Start the multiplaction operation.
         pka.function
@@ -329,20 +389,18 @@ impl<'p> Crypto<'p> {
         let mut offset: usize = 0;
 
         // Save the address of the A vector.
-        pka.aptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
-        PkaRam::write_slice(num1, offset);
-        offset += 4 * (num1.len() + num1.len() % 2);
+        Self::set_a_ptr(offset);
+        offset += PkaRam::write_slice(num1, offset);
 
         // Save the address of the B vector.
-        pka.bptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
-        PkaRam::write_slice(num2, offset);
-        offset += 4 * (num2.len() + num2.len() % 2 + 2);
+        Self::set_b_ptr(offset >> 2);
+        offset += PkaRam::write_slice(num2, offset);
 
         // Save the address of the C vector.
-        pka.cptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        Self::set_c_ptr(offset >> 2);
 
-        pka.alength.write(|w| unsafe { w.bits(num1.len() as u32) });
-        pka.blength.write(|w| unsafe { w.bits(num2.len() as u32) });
+        Self::set_a_length(num1.len());
+        Self::set_b_length(num2.len());
 
         // Start the modulo operation.
         pka.function.write(|w| w.modulo().set_bit().run().set_bit());
@@ -358,29 +416,27 @@ impl<'p> Crypto<'p> {
     }
 
     /// Inverse modulo of a bignums.
-    pub fn inv_modulo(num1: &[u32], num2: &[u32], result: &mut [u32]) {
+    pub fn inv_modulo(num1: &[u32], num2: &[u32], result: &mut [u32]) -> Result<(), CryptoError> {
         if Self::is_pka_in_use() {
-            return;
+            return Err(CryptoError::PkaBusy);
         }
 
         let pka = Self::pka();
         let mut offset: usize = 0;
 
         // Save the address of the A vector.
-        pka.aptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
-        PkaRam::write_slice(num1, offset);
-        offset += 4 * (num1.len() + num1.len() % 2);
+        Self::set_a_ptr(offset);
+        offset += PkaRam::write_slice(num1, offset);
 
         // Save the address of the B vector.
-        pka.bptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
-        PkaRam::write_slice(num2, offset);
-        offset += 4 * (num2.len() + num2.len() % 2 + 2);
+        Self::set_b_ptr(offset >> 2);
+        offset += PkaRam::write_slice(num2, offset);
 
         // Save the address of the C vector.
-        pka.cptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        Self::set_c_ptr(offset >> 2);
 
-        pka.alength.write(|w| unsafe { w.bits(num1.len() as u32) });
-        pka.blength.write(|w| unsafe { w.bits(num2.len() as u32) });
+        Self::set_a_length(num1.len());
+        Self::set_b_length(num2.len());
 
         // Start the inverse module operation
         pka.function
@@ -389,9 +445,12 @@ impl<'p> Crypto<'p> {
 
         let status = pka.shift.read().bits();
         match status {
-            0 => PkaRam::read_slice(&mut result[..num1.len()], offset),
-            7 => todo!(),
-            31 => todo!(),
+            0 => {
+                PkaRam::read_slice(&mut result[..num1.len()], offset);
+                Ok(())
+            }
+            7 => Err(CryptoError::NoSolution),
+            31 => Err(CryptoError::PkaFailure),
             _ => unreachable!(),
         }
     }
@@ -418,27 +477,23 @@ impl<'p> Crypto<'p> {
         let mut offset: usize = 0;
 
         // Save the address of the A vector.
-        pka.aptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
-        PkaRam::write_slice(exponent, offset);
-        offset += 4 * (exponent.len() + exponent.len() % 2);
+        Self::set_a_ptr(offset);
+        offset += PkaRam::write_slice(exponent, offset);
 
         // Save the address of the B vector.
-        pka.bptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
-        PkaRam::write_slice(modulus, offset);
-        offset += 4 * (modulus.len() + modulus.len() % 2 + 2);
+        Self::set_b_ptr(offset >> 2);
+        offset += PkaRam::write_slice(modulus, offset);
 
         // Save the address of the C vector.
-        pka.cptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        Self::set_c_ptr(offset >> 2);
         PkaRam::write_slice(base, offset);
 
         // C and D can share the same address.
         // Save the address of the D vector.
-        pka.dptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        Self::set_d_ptr(offset >> 2);
 
-        pka.alength
-            .write(|w| unsafe { w.bits(exponent.len() as u32) });
-        pka.blength
-            .write(|w| unsafe { w.bits(modulus.len() as u32) });
+        Self::set_a_length(exponent.len());
+        Self::set_b_length(modulus.len());
 
         // Start the exp operation.
         pka.function
@@ -470,15 +525,14 @@ impl<'p> Crypto<'p> {
         let mut offset = 0;
 
         // Save the address of the A vector.
-        pka.aptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
-        PkaRam::write_slice(num1, offset);
-        offset += 4 * (num1.len() + num1.len() % 2);
+        Self::set_a_ptr(offset);
+        offset += PkaRam::write_slice(num1, offset);
 
         // Save the address of the C vector.
-        pka.cptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        Self::set_c_ptr(offset >> 2);
         PkaRam::write_slice(num2, offset);
 
-        pka.alength.write(|w| unsafe { w.bits(num1.len() as u32) });
+        Self::set_a_length(num1.len());
 
         // Start the comparison operation.
         pka.function

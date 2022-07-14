@@ -48,6 +48,7 @@ pub enum CryptoError {
     AesBusy,
     ResultIsZero,
     PkaFailure,
+    NoSolution,
 }
 
 pub struct Crypto<'p> {
@@ -114,8 +115,10 @@ impl PkaRam {
     const PKA_RAM_PTR: usize = 0x4400_6000;
     const PKA_RAM_SIZE: usize = 0x800;
 
-    /// Write a slice into the memory the PKA RAM.
+    /// Write a slice into the memory the PKA RAM and returns the next offset that is 8 byte
+    /// aligned. We assume that the offset that is also aligned.
     fn write_slice(data: &[u32], offset: usize) -> usize {
+        assert!(offset % 8 == 0);
         assert!(offset + data.len() * 4 < Self::PKA_RAM_SIZE);
 
         for (i, d) in data.iter().enumerate() {
@@ -125,7 +128,7 @@ impl PkaRam {
             }
         }
 
-        4 * data.len()
+        (((4 * data.len()) + 7)/8)*8
     }
 
     /// Write data form PKA RAM into a slice.

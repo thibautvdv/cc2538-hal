@@ -62,6 +62,8 @@ fn inner_main() -> Result<(), &'static str> {
     bignum1.inner_mut()[0] = 4;
     let mut bignum2 = BigNum::<16>::new(5);
     bignum2.inner_mut()[..4].copy_from_slice(&[0xff; 4]);
+    let mut bignum3 = BigNum::<16>::new(5);
+    bignum3.inner_mut()[0] = 42;
 
     let bignum_result = bignum1.add(&bignum2).unwrap();
     rprintln!("{} + {} = {}", bignum1, bignum2, bignum_result);
@@ -69,17 +71,26 @@ fn inner_main() -> Result<(), &'static str> {
     let bignum_result = bignum2.sub(&bignum1).unwrap();
     rprintln!("{} - {} = {}", bignum2, bignum1, bignum_result);
 
+    let bignum_result = bignum2.add_sub(&bignum3, &bignum1).unwrap();
+    rprintln!(
+        "{} + {} - {} = {}",
+        bignum2,
+        bignum3,
+        bignum1,
+        bignum_result
+    );
+
     let bignum_result = bignum1.mul(&bignum2).unwrap();
     rprintln!("{} * {} = {}", bignum1, bignum2, bignum_result);
 
-    //let (bignum_result, _) = bignum1.div(&bignum2).unwrap();
-    rprintln!("{} / {} = {} (remainder {})", bignum1, bignum2, bignum_result, bignum_result);
+    //let (bignum_result, ) = bignum1.div(&bignum2).unwrap();
+    //rprintln!("{} / {} = {} (remainder {})", bignum1, bignum2, bignum_result, bignum_result);
 
     let bignum_result = bignum2.modulo(&bignum1).unwrap();
     rprintln!("{} mod {} = {}", bignum2, bignum1, bignum_result);
 
-    let bignum_result = bignum1.inv_mod(&bignum2);
-    rprintln!("{}^-1 mod {} = {}", bignum1, bignum2, bignum_result);
+    let bignum_result = bignum2.inv_mod(&bignum1);
+    rprintln!("{}^-1 mod {} = {:?}", bignum2, bignum1, bignum_result);
 
     let mut base = BigNum::<16>::new(4);
     base.inner_mut().copy_from_slice(&[0x0fu32; 4]);
