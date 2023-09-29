@@ -126,23 +126,16 @@ fn inner_main() -> Result<(), &'static str> {
         let end = DWT::cycle_count();
         black_box(&core_periph);
         black_box(&mut digest);
-        //rprintln!(
-            //"Result: {:2x?} in {} cycles",
-            //digest,
-            //end.wrapping_sub(start)
-        //);
-        tx.write_fmt(format_args!(
+        rprintln!(
             "Result: {:2x?} in {} cycles",
             digest,
             end.wrapping_sub(start)
-        )).unwrap();
+        );
         assert_eq!(digest, *output);
     }
 
-    //rprintln!("Done!");
-    //rprintln!("Tests seems correct!");
-    tx.write_str("Done!").unwrap();
-    tx.write_str("Tests seems correct!").unwrap();
+    rprintln!("Done!");
+    rprintln!("Tests seems correct!");
 
     loop {
         asm::nop();
