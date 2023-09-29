@@ -24,7 +24,7 @@ fn main() -> ! {
 
 fn inner_main() -> Result<(), &'static str> {
     let mut _core_periph = cortex_m::Peripherals::take().ok_or("unable to get core peripherals")?;
-    let periph = pac::Peripherals::take().ok_or("unable to get peripherals")?;
+    let periph = unsafe { pac::Peripherals::steal() };
 
     // Setup the clock
     let mut sys_ctrl = periph.SYS_CTRL.constrain();

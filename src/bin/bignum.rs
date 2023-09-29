@@ -27,7 +27,7 @@ fn main() -> ! {
 }
 
 fn inner_main() -> Result<(), &'static str> {
-    let mut periph = pac::Peripherals::take().ok_or("unable to get peripherals")?;
+    let mut periph = unsafe { pac::Peripherals::steal() };
 
     let mut core_periph = cortex_m::Peripherals::take().unwrap();
     core_periph.DCB.enable_trace();
