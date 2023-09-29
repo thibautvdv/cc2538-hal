@@ -53,7 +53,7 @@ impl I2cmExt for I2CM {
 }
 
 #[derive(Debug)]
-pub struct I2cMaster<STATE=Disabled> {
+pub struct I2cMaster<STATE = Disabled> {
     i2cm: I2CM,
     _state: PhantomData<STATE>,
 }

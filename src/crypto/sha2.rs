@@ -1,31 +1,6 @@
-use core::marker::PhantomData;
+use super::{Crypto, CryptoError};
 
-use cc2538_pac::{aes, AES};
-
-pub struct NotSpecified;
-pub struct Sha256Engine;
-
-pub trait CryptoExt {
-    type Parts;
-
-    fn constrain(self) -> Self::Parts;
-}
-
-pub struct Crypto<STATE> {
-    aes: AES,
-    _state: PhantomData<STATE>,
-}
-
-impl CryptoExt for AES {
-    type Parts = Crypto<NotSpecified>;
-
-    fn constrain(self) -> Self::Parts {
-        Crypto {
-            aes: self,
-            _state: PhantomData,
-        }
-    }
-}
+pub struct Sha256Engine {}
 
 const BLOCK_SIZE: usize = 64;
 const OUTPUT_LEN: usize = 32;
@@ -40,28 +15,12 @@ pub struct Sha256State {
     final_digest: bool,
 }
 
-impl<STATE> Crypto<STATE> {
-    pub fn reset(&mut self) {
-        // Resetting is performed using SysCtrl.
-        // TODO: change the SysCtrl API.
-    }
-
-    pub fn free(self) -> AES {
-        self.aes
-    }
-}
-
-impl Crypto<NotSpecified> {
-    pub fn sha256_engine(self) -> Crypto<Sha256Engine> {
-        Crypto {
-            aes: self.aes,
-            _state: PhantomData,
-        }
-    }
-}
-
-impl Crypto<Sha256Engine> {
-    pub fn sha256(&mut self, data: &[u8], digest: &mut [u8]) {
+impl<'p> Crypto<'p> {
+    pub fn sha256(
+        &mut self,
+        data: impl AsRef<[u8]>,
+        digest: &mut impl AsMut<[u8]>,
+    ) -> Result<(), CryptoError> {
         let mut state = Sha256State {
             length: 0,
             state: [0; 8],
@@ -71,6 +30,9 @@ impl Crypto<Sha256Engine> {
             final_digest: false,
         };
 
+        let data = data.as_ref();
+        let digest = digest.as_mut();
+
         assert!(!data.is_empty());
         assert!(digest.len() == 32);
 
@@ -78,8 +40,8 @@ impl Crypto<Sha256Engine> {
         let mut len = data.len();
 
         // Check if the resource is in use
-        if self.is_in_use() {
-            return;
+        if Self::is_aes_in_use() {
+            return Err(CryptoError::AesBusy);
         }
 
         if len > 0 && state.new_digest {
@@ -135,216 +97,190 @@ impl Crypto<Sha256Engine> {
         self.finalize(&mut state);
 
         digest.copy_from_slice(unsafe { &core::mem::transmute::<[u32; 8], [u8; 32]>(state.state) });
+
+        Ok(())
     }
 
     fn new_hash(&mut self, state: &mut Sha256State) {
+        let aes = Self::aes();
         // Workaround for AES registers not retained after PM2
-        self.aes.ctrl_int_cfg.write(|w| w.level().set_bit());
-        self.aes
-            .ctrl_int_en
+        aes.ctrl_int_cfg.write(|w| w.level().set_bit());
+        aes.ctrl_int_en
             .write(|w| w.dma_in_done().set_bit().result_av().set_bit());
 
         // Configure master control module and enable DMA path to the SHA-256 engine.
         // Enable digest readout.
-        self.aes
-            .ctrl_alg_sel
+        aes.ctrl_alg_sel
             .write(|w| w.tag().set_bit().hash().set_bit());
 
         // Clear any outstanding events.
-        self.aes.ctrl_int_clr.write(|w| w.result_av().set_bit());
+        aes.ctrl_int_clr.write(|w| w.result_av().set_bit());
 
         // Configure the hash engine.
         // Indicate start of a new hash session and SHA-256.
-        self.aes
-            .hash_mode_in
+        aes.hash_mode_in
             .write(|w| w.sha256_mode().set_bit().new_hash().set_bit());
 
         // If the final digest is required (pad the input DMA data).
         if state.final_digest {
             unsafe {
-                self.aes
-                    .hash_length_in_l
+                aes.hash_length_in_l
                     .write(|w| w.length_in().bits((state.length & 0xffff_ffff) as u32));
 
-                self.aes
-                    .hash_length_in_h
+                aes.hash_length_in_h
                     .write(|w| w.length_in().bits((state.length >> 32) as u32));
 
-                self.aes
-                    .hash_io_buf_ctrl
+                aes.hash_io_buf_ctrl
                     .write(|w| w.pad_dma_message().set_bit());
             }
         }
 
         // Enable DMA channel 0.
-        self.aes.dmac_ch0_ctrl.write(|w| w.en().set_bit());
+        aes.dmac_ch0_ctrl.write(|w| w.en().set_bit());
 
         // Base address of the data in external memory.
         unsafe {
-            self.aes
-                .dmac_ch0_extaddr
+            aes.dmac_ch0_extaddr
                 .write(|w| w.addr().bits(state.buf.as_ptr() as u32))
         };
 
         if state.final_digest {
             unsafe {
-                self.aes
-                    .dmac_ch0_dmalength
+                aes.dmac_ch0_dmalength
                     .write(|w| w.dmalen().bits(state.curlen as u16))
             };
         } else {
             unsafe {
-                self.aes
-                    .dmac_ch0_dmalength
+                aes.dmac_ch0_dmalength
                     .write(|w| w.dmalen().bits(BLOCK_SIZE as u16))
             };
         }
 
         // Enable DMA channel 1.
-        self.aes.dmac_ch1_ctrl.write(|w| w.en().set_bit());
+        aes.dmac_ch1_ctrl.write(|w| w.en().set_bit());
 
         unsafe {
             // Base address of the digest buffer.
-            self.aes
-                .dmac_ch1_extaddr
+            aes.dmac_ch1_extaddr
                 .write(|w| w.addr().bits(state.state.as_ptr() as u32));
             // Length of the result digest.
-            self.aes
-                .dmac_ch1_dmalength
+            aes.dmac_ch1_dmalength
                 .write(|w| w.dmalen().bits(OUTPUT_LEN as u16));
         }
 
         // Wait for the completion of the operation.
-        while !self.is_completed() {}
+        while !Self::is_aes_completed() {}
 
         // Clear the interrupt.
-        self.aes
-            .ctrl_int_clr
+        aes.ctrl_int_clr
             .write(|w| w.dma_in_done().set_bit().result_av().set_bit());
 
         unsafe {
             // Disable master control.
-            self.aes.ctrl_alg_sel.write(|w| w.bits(0));
+            aes.ctrl_alg_sel.write(|w| w.bits(0));
             // Clear mode
-            self.aes.aes_ctrl.write(|w| w.bits(0));
+            aes.aes_ctrl.write(|w| w.bits(0));
         }
     }
 
     fn resume_hash(&mut self, state: &mut Sha256State) {
+        let aes = Self::aes();
         // Workaround for AES registers not retained after PM2.
-        self.aes.ctrl_int_cfg.write(|w| w.level().set_bit());
-        self.aes
-            .ctrl_int_en
+        aes.ctrl_int_cfg.write(|w| w.level().set_bit());
+        aes.ctrl_int_en
             .write(|w| w.dma_in_done().set_bit().result_av().set_bit());
 
         // Configure master control module and enable the DMA path to the SHA2-256 engine.
-        self.aes.ctrl_alg_sel.write(|w| w.hash().set_bit());
+        aes.ctrl_alg_sel.write(|w| w.hash().set_bit());
 
         // Clear any outstanding events.
-        self.aes.ctrl_int_clr.write(|w| w.result_av().set_bit());
+        aes.ctrl_int_clr.write(|w| w.result_av().set_bit());
 
         // Configure hash engine.
         // Indicate the start of a resumed hash session and SHA-256.
-        self.aes.hash_mode_in.write(|w| w.sha256_mode().set_bit());
+        aes.hash_mode_in.write(|w| w.sha256_mode().set_bit());
 
         // If the final digest is required (pad the input DMA data).
         if state.final_digest {
             unsafe {
-                self.aes
-                    .hash_length_in_l
+                aes.hash_length_in_l
                     .write(|w| w.length_in().bits((state.length & 0xffff_ffff) as u32));
-                self.aes
-                    .hash_length_in_h
+                aes.hash_length_in_h
                     .write(|w| w.length_in().bits((state.length >> 32) as u32));
             }
         }
 
         // Write the initial digest.
         unsafe {
-            self.aes
-                .hash_digest_a
+            aes.hash_digest_a
                 .write(|w| w.hash_digest().bits(state.state[0]));
-            self.aes
-                .hash_digest_b
+            aes.hash_digest_b
                 .write(|w| w.hash_digest().bits(state.state[1]));
-            self.aes
-                .hash_digest_c
+            aes.hash_digest_c
                 .write(|w| w.hash_digest().bits(state.state[2]));
-            self.aes
-                .hash_digest_d
+            aes.hash_digest_d
                 .write(|w| w.hash_digest().bits(state.state[3]));
-            self.aes
-                .hash_digest_e
+            aes.hash_digest_e
                 .write(|w| w.hash_digest().bits(state.state[4]));
-            self.aes
-                .hash_digest_f
+            aes.hash_digest_f
                 .write(|w| w.hash_digest().bits(state.state[5]));
-            self.aes
-                .hash_digest_g
+            aes.hash_digest_g
                 .write(|w| w.hash_digest().bits(state.state[6]));
-            self.aes
-                .hash_digest_h
+            aes.hash_digest_h
                 .write(|w| w.hash_digest().bits(state.state[7]));
         }
 
         // If final digest, pad the DMA-ed data.
         if state.final_digest {
-            self.aes
-                .hash_io_buf_ctrl
+            aes.hash_io_buf_ctrl
                 .write(|w| w.pad_dma_message().set_bit());
         }
 
         // Enable DMA channel 0.
-        self.aes.dmac_ch0_ctrl.write(|w| w.en().set_bit());
+        aes.dmac_ch0_ctrl.write(|w| w.en().set_bit());
         // Base address of the data in external memory.
         unsafe {
-            self.aes
-                .dmac_ch0_extaddr
+            aes.dmac_ch0_extaddr
                 .write(|w| w.addr().bits(state.buf.as_ptr() as u32))
         };
 
         if state.final_digest {
             unsafe {
-                self.aes
-                    .dmac_ch0_dmalength
+                aes.dmac_ch0_dmalength
                     .write(|w| w.dmalen().bits(state.curlen as u16))
             };
         } else {
             unsafe {
-                self.aes
-                    .dmac_ch0_dmalength
+                aes.dmac_ch0_dmalength
                     .write(|w| w.dmalen().bits(BLOCK_SIZE as u16))
             };
         }
 
         // Wait for the completion of the operation.
-        while !self.is_completed() {}
+        while !Self::is_aes_completed() {}
 
         // Read the digest
-        state.state[0] = self.aes.hash_digest_a.read().bits();
-        state.state[1] = self.aes.hash_digest_b.read().bits();
-        state.state[2] = self.aes.hash_digest_c.read().bits();
-        state.state[3] = self.aes.hash_digest_d.read().bits();
-        state.state[4] = self.aes.hash_digest_e.read().bits();
-        state.state[5] = self.aes.hash_digest_f.read().bits();
-        state.state[6] = self.aes.hash_digest_g.read().bits();
-        state.state[7] = self.aes.hash_digest_h.read().bits();
+        state.state[0] = aes.hash_digest_a.read().bits();
+        state.state[1] = aes.hash_digest_b.read().bits();
+        state.state[2] = aes.hash_digest_c.read().bits();
+        state.state[3] = aes.hash_digest_d.read().bits();
+        state.state[4] = aes.hash_digest_e.read().bits();
+        state.state[5] = aes.hash_digest_f.read().bits();
+        state.state[6] = aes.hash_digest_g.read().bits();
+        state.state[7] = aes.hash_digest_h.read().bits();
 
         // Ack reading of the digest.
-        self.aes
-            .hash_io_buf_ctrl
-            .write(|w| w.output_full().set_bit());
+        aes.hash_io_buf_ctrl.write(|w| w.output_full().set_bit());
 
         // Clear the interrupt.
-        self.aes
-            .ctrl_int_clr
+        aes.ctrl_int_clr
             .write(|w| w.dma_in_done().set_bit().result_av().set_bit());
 
         unsafe {
             // Disable master control.
-            self.aes.ctrl_alg_sel.write(|w| w.bits(0));
+            aes.ctrl_alg_sel.write(|w| w.bits(0));
             // Clear mode
-            self.aes.aes_ctrl.write(|w| w.bits(0));
+            aes.aes_ctrl.write(|w| w.bits(0));
         }
     }
 
@@ -360,13 +296,5 @@ impl Crypto<Sha256Engine> {
 
         state.new_digest = false;
         state.final_digest = false;
-    }
-
-    fn is_completed(&self) -> bool {
-        self.aes.ctrl_int_stat.read().result_av().bit_is_set()
-    }
-
-    fn is_in_use(&self) -> bool {
-        self.aes.ctrl_alg_sel.read().bits() != 0
     }
 }

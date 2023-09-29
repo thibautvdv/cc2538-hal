@@ -1,21 +1,11 @@
 #![no_main]
 #![no_std]
-#![feature(default_alloc_error_handler)]
-
-//use mutiny_rs::task;
-//use mutiny_async::task;
 
 use cortex_m::asm;
 use cortex_m_rt as rt;
 use rt::entry;
 
 use panic_rtt_target as _;
-
-extern crate alloc;
-use alloc_cortex_m::CortexMHeap;
-
-#[global_allocator]
-static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
 use rtt_target::rtt_init_print;
 
@@ -25,11 +15,6 @@ use cc2538_pac as pac;
 #[entry]
 fn main() -> ! {
     rtt_init_print!();
-
-    // Setup the allocator
-    let start = cortex_m_rt::heap_start() as usize;
-    let size = 4048;
-    unsafe { ALLOCATOR.init(start, size) };
 
     match inner_main() {
         Ok(()) => cortex_m::peripheral::SCB::sys_reset(),

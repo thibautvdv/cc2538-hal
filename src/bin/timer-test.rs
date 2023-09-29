@@ -1,33 +1,19 @@
 #![no_main]
 #![no_std]
-#![feature(default_alloc_error_handler)]
-
-use core::time::Duration;
 
 use cortex_m_rt as rt;
 use rt::entry;
 
 use panic_rtt_target as _;
 
-extern crate alloc;
-use alloc_cortex_m::CortexMHeap;
+use rtt_target::rtt_init_print;
 
-#[global_allocator]
-static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
-
-use rtt_target::{rprintln, rtt_init_print};
-
-use cc2538_hal::{sys_ctrl::*, timers::*};
+use cc2538_hal::sys_ctrl::*; // , timers::*};
 use cc2538_pac as pac;
 
 #[entry]
 fn main() -> ! {
     rtt_init_print!();
-
-    // Setup the allocator
-    let start = cortex_m_rt::heap_start() as usize;
-    let size = 4048;
-    unsafe { ALLOCATOR.init(start, size) };
 
     match inner_main() {
         Ok(()) => cortex_m::peripheral::SCB::sys_reset(),
@@ -46,18 +32,18 @@ fn inner_main() -> Result<(), &'static str> {
     sys_ctrl.enable_gpt0_in_active_mode();
     sys_ctrl.enable_gpt0_in_sleep_mode();
     sys_ctrl.enable_gpt0_in_deep_sleep_mode();
-    let clocks = sys_ctrl.freeze();
-    let clock_config = clocks.config();
+    //let clocks = sys_ctrl.freeze();
+    //let clock_config = clocks.config();
 
     unsafe {
         cortex_m::interrupt::enable();
     }
 
-    let timer0 = periph.GPTIMER0.split();
-    let (mut timer0, timer0a, timer0b) = timer0.split();
+    //let timer0 = periph.GPTIMER0.split();
+    //let (mut timer0, timer0a, timer0b) = timer0.split();
 
-    let mut timer0a = timer0a.into_one_shot_timer(&mut timer0);
-    let mut timer0b = timer0b.into_one_shot_timer(&mut timer0);
+    //let mut timer0a = timer0a.into_one_shot_timer(&mut timer0);
+    //let mut timer0b = timer0b.into_one_shot_timer(&mut timer0);
 
     //task::spawn(async move {
     //loop {

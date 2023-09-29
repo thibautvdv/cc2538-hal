@@ -1,6 +1,5 @@
 #![no_main]
 #![no_std]
-#![feature(default_alloc_error_handler)]
 #![feature(bench_black_box)]
 
 use core::hint::black_box;
@@ -11,12 +10,6 @@ use pac::DWT;
 use rt::entry;
 
 use panic_rtt_target as _;
-
-extern crate alloc;
-use alloc_cortex_m::CortexMHeap;
-
-#[global_allocator]
-static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
 use rtt_target::{rprintln, rtt_init_print};
 
@@ -29,11 +22,6 @@ use core::fmt::Write;
 fn main() -> ! {
     rtt_init_print!(BlockIfFull);
 
-    // Setup the allocator
-    // let start = cortex_m_rt::heap_start() as usize;
-    // let size = 4048;
-    // unsafe { ALLOCATOR.init(start, size) };
-
     match inner_main() {
         Ok(()) => cortex_m::peripheral::SCB::sys_reset(),
         Err(e) => panic!("{}", e),
@@ -41,7 +29,7 @@ fn main() -> ! {
 }
 
 fn inner_main() -> Result<(), &'static str> {
-    let periph = pac::Peripherals::take().ok_or("unable to get peripherals")?;
+    let mut periph = pac::Peripherals::take().ok_or("unable to get peripherals")?;
 
     let mut core_periph = cortex_m::Peripherals::take().unwrap();
     core_periph.DCB.enable_trace();
@@ -60,29 +48,7 @@ fn inner_main() -> Result<(), &'static str> {
     let mut sys_ctrl = sys_ctrl.freeze();
     sys_ctrl.clear_reset_aes();
 
-    let clocks = sys_ctrl.config();
-
-    let uart0 = periph.UART0;
-    let mut ioc = periph.IOC.split();
-    let mut gpioa = periph.GPIO_A.split();
-
-    let rx_pin = gpioa.pa0.downgrade().as_uart0_rxd(&mut ioc.uartrxd_uart0);
-    let tx_pin = gpioa
-        .pa1
-        .into_alt_output_function(
-            &mut gpioa.dir,
-            &mut gpioa.afsel,
-            &mut ioc.pa1_sel,
-            &mut ioc.pa1_over,
-            OutputFunction::Uart0Txd,
-        )
-        .downgrade();
-
-    let serial = Serial::uart0(uart0, (tx_pin, rx_pin), 115200u32, clocks);
-    let (mut tx, _) = serial.split();
-
-    let crypto = periph.AES.constrain();
-    let mut sha256 = crypto.sha256_engine();
+    let mut sha256 = Crypto::new(&mut periph.AES, &mut periph.PKA);
 
     let data: [(&[u8], &[u8]); 7] = [
         (
@@ -156,27 +122,20 @@ fn inner_main() -> Result<(), &'static str> {
         black_box(&mut digest);
         black_box(&core_periph);
         let start = DWT::cycle_count();
-        sha256.sha256(input, &mut digest);
+        sha256.sha256(input, &mut digest).unwrap();
         let end = DWT::cycle_count();
         black_box(&core_periph);
         black_box(&mut digest);
-        //rprintln!(
-            //"Result: {:2x?} in {} cycles",
-            //digest,
-            //end.wrapping_sub(start)
-        //);
-        tx.write_fmt(format_args!(
+        rprintln!(
             "Result: {:2x?} in {} cycles",
             digest,
             end.wrapping_sub(start)
-        )).unwrap();
+        );
         assert_eq!(digest, *output);
     }
 
-    //rprintln!("Done!");
-    //rprintln!("Tests seems correct!");
-    tx.write_str("Done!").unwrap();
-    tx.write_str("Tests seems correct!").unwrap();
+    rprintln!("Done!");
+    rprintln!("Tests seems correct!");
 
     loop {
         asm::nop();

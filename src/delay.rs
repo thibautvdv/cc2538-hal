@@ -15,7 +15,7 @@ pub struct Delay {
 impl Delay {
     pub fn new(mut syst: SYST, clocks: ClockConfig) -> Self {
         syst.set_clock_source(SystClkSource::Core);
-        Self { clocks, syst  }
+        Self { clocks, syst }
     }
 
     pub fn free(self) -> SYST {

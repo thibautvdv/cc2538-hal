@@ -2,8 +2,10 @@ use core::marker::PhantomData;
 
 use cc2538_pac::{soc_adc, CCTEST, RFCORE_XREG, SOC_ADC};
 
+use core::marker::ConstParamTy;
+
 /// The channel the ADC is using when calling [`Adc::get`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ConstParamTy)]
 pub enum AdcChannel {
     Ain0 = 0b0000,
     Ain1 = 0b0001,

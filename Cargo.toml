@@ -13,10 +13,30 @@ targets = ["thumbv7m-none-eabi"]
 cc2538-pac = { version = "0.1.0", features = ["rt"] }
 cortex-m = { version = "0.7.4", features = ["inline-asm"] }
 cortex-m-rt = { version = "0.7", features = ["device"] }
-alloc-cortex-m = "0.4.1"
 circular-queue = "0.2.6"
 embedded-hal = "=1.0.0-alpha.5"
 nb = "1.0.0"
 paste = "1.0.4"
 panic-rtt-target = { version = "0.1.2", features = ["cortex-m"] }
 rtt-target = { version = "0.3.1", features = ["cortex-m"] }
+
+[features]
+default = []
+
+[[bin]]
+name = "sleep-timer"
+
+[[bin]]
+name = "timer-test"
+
+[[bin]]
+name = "aes_tests"
+
+[[bin]]
+name = "crypto_test"
+
+[[bin]]
+name = "bignum"
+
+[[bin]]
+name = "ecc_tests"
