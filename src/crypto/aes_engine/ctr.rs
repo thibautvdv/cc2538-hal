@@ -20,7 +20,7 @@ impl<'p> Crypto<'p> {
         }
 
         let ctrl = |aes: &aes::RegisterBlock| unsafe {
-            aes.aes_ctrl.write(|w| {
+            aes.aes_ctrl().write(|w| {
                 w.ctr_width()
                     .bits((ctr.len() >> 2) as u8 - 1)
                     .ctr()
@@ -51,7 +51,7 @@ impl<'p> Crypto<'p> {
         }
 
         let ctrl = |aes: &aes::RegisterBlock| unsafe {
-            aes.aes_ctrl.write(|w| {
+            aes.aes_ctrl().write(|w| {
                 w.ctr_width()
                     .bits((ctr.len() >> 2) as u8 - 1)
                     .ctr()
