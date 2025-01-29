@@ -6,9 +6,10 @@ use core::{
 };
 
 use cc2538_pac as pac;
+use cortex_m::peripheral::NVIC;
 use pac::{
-    ana_regs, rfcore_ffsm, rfcore_sfr, rfcore_xreg, CorePeripherals, Interrupt, ANA_REGS, NVIC,
-    RFCORE_FFSM, RFCORE_SFR, RFCORE_XREG,
+    ana_regs, rfcore_ffsm, rfcore_sfr, rfcore_xreg, AnaRegs, Interrupt, RfcoreFfsm, RfcoreSfr,
+    RfcoreXreg,
 };
 
 use crate::dma::{self, Dma, Enabled, TransferMode};
@@ -266,10 +267,10 @@ pub struct RadioOn;
 pub struct RadioOff;
 
 pub struct RadioDriver<'p, State> {
-    _ffsm: PhantomData<&'p mut RFCORE_FFSM>,
-    _xreg: PhantomData<&'p mut RFCORE_XREG>,
-    _sfr: PhantomData<&'p mut RFCORE_SFR>,
-    _ana: PhantomData<&'p mut ANA_REGS>,
+    _ffsm: PhantomData<&'p mut RfcoreFfsm>,
+    _xreg: PhantomData<&'p mut RfcoreXreg>,
+    _sfr: PhantomData<&'p mut RfcoreSfr>,
+    _ana: PhantomData<&'p mut AnaRegs>,
     tx_channel: dma::Channel,
     rx_channel: dma::Channel,
     _state: PhantomData<State>,
@@ -278,86 +279,86 @@ pub struct RadioDriver<'p, State> {
 impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     fn ffsm_regs() -> &'static rfcore_ffsm::RegisterBlock {
-        unsafe { &*RFCORE_FFSM::ptr() }
+        unsafe { &*RfcoreFfsm::ptr() }
     }
 
     #[inline]
     fn xreg_regs() -> &'static rfcore_xreg::RegisterBlock {
-        unsafe { &*RFCORE_XREG::ptr() }
+        unsafe { &*RfcoreXreg::ptr() }
     }
 
     #[inline]
     fn sfr_regs() -> &'static rfcore_sfr::RegisterBlock {
-        unsafe { &*RFCORE_SFR::ptr() }
+        unsafe { &*RfcoreSfr::ptr() }
     }
 
     #[inline]
     fn ana_regs() -> &'static ana_regs::RegisterBlock {
-        unsafe { &*ANA_REGS::ptr() }
+        unsafe { &*AnaRegs::ptr() }
     }
 
     /// Set the PAN ID to use by the radio
     #[inline]
     pub fn set_pan_id(&self, id: u32) {
         Self::ffsm_regs()
-            .pan_id0
+            .pan_id0()
             .modify(|_, w| unsafe { w.bits(id & 0xFF) });
         Self::ffsm_regs()
-            .pan_id1
+            .pan_id1()
             .modify(|_, w| unsafe { w.bits(id >> 8) });
     }
 
     /// Return the PAN ID that is currently used
     #[inline]
     pub fn get_pan_id(&mut self) -> u16 {
-        (Self::ffsm_regs().pan_id1.read().bits() << 8) as u16
-            | (Self::ffsm_regs().pan_id0.read().bits() & 0xFF) as u16
+        (Self::ffsm_regs().pan_id1().read().bits() << 8) as u16
+            | (Self::ffsm_regs().pan_id0().read().bits() & 0xFF) as u16
     }
 
     /// Set the short address
     #[inline]
     pub fn set_short_address(&mut self, addr: u16) {
         Self::ffsm_regs()
-            .short_addr0
+            .short_addr0()
             .modify(|_, w| unsafe { w.bits(addr as u32 & 0xFF) });
         Self::ffsm_regs()
-            .short_addr1
+            .short_addr1()
             .modify(|_, w| unsafe { w.bits(addr as u32 >> 8) });
     }
 
     /// Return the short address
     #[inline]
     pub fn get_short_address(&mut self) -> u16 {
-        (Self::ffsm_regs().short_addr1.read().bits() << 8) as u16
-            | (Self::ffsm_regs().short_addr0.read().bits() & 0xFF) as u16
+        (Self::ffsm_regs().short_addr1().read().bits() << 8) as u16
+            | (Self::ffsm_regs().short_addr0().read().bits() & 0xFF) as u16
     }
 
     /// Set the extended address
     #[inline]
     pub fn set_extended_address(&mut self, addr: &[u8]) {
         let ffsm = Self::ffsm_regs();
-        ffsm.ext_addr0
+        ffsm.ext_addr0()
             .write(|w| unsafe { w.ext_addr0().bits(addr[7]) });
-        ffsm.ext_addr1
+        ffsm.ext_addr1()
             .write(|w| unsafe { w.ext_addr1().bits(addr[6]) });
-        ffsm.ext_addr2
+        ffsm.ext_addr2()
             .write(|w| unsafe { w.ext_addr2().bits(addr[5]) });
-        ffsm.ext_addr3
+        ffsm.ext_addr3()
             .write(|w| unsafe { w.ext_addr3().bits(addr[4]) });
-        ffsm.ext_addr4
+        ffsm.ext_addr4()
             .write(|w| unsafe { w.ext_addr4().bits(addr[3]) });
-        ffsm.ext_addr5
+        ffsm.ext_addr5()
             .write(|w| unsafe { w.ext_addr5().bits(addr[2]) });
-        ffsm.ext_addr6
+        ffsm.ext_addr6()
             .write(|w| unsafe { w.ext_addr6().bits(addr[1]) });
-        ffsm.ext_addr7
+        ffsm.ext_addr7()
             .write(|w| unsafe { w.ext_addr7().bits(addr[0]) });
     }
 
     /// Return the CCA threshold in dB
     #[inline]
     pub fn get_cca_threshold(&mut self) -> i32 {
-        let cca_thr = Self::xreg_regs().ccactrl0.read().cca_thr().bits() as i32;
+        let cca_thr = Self::xreg_regs().ccactrl0().read().cca_thr().bits() as i32;
         cca_thr - 73
     }
 
@@ -365,7 +366,7 @@ impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     pub fn set_cca_threshold(&mut self, threshold: i32) {
         Self::xreg_regs()
-            .ccactrl0
+            .ccactrl0()
             .modify(|_, w| unsafe { w.bits((threshold + 73) as u32) });
     }
 
@@ -383,7 +384,7 @@ impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     pub fn enable_frame_filtering(&mut self) {
         Self::xreg_regs()
-            .frmfilt0
+            .frmfilt0()
             .modify(|_, w| w.frame_filter_en().set_bit());
     }
 
@@ -391,7 +392,7 @@ impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     pub fn disable_frame_filtering(&mut self) {
         Self::xreg_regs()
-            .frmfilt0
+            .frmfilt0()
             .modify(|_, w| w.frame_filter_en().clear_bit());
     }
 
@@ -399,7 +400,7 @@ impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     pub fn enable_shr_search(&mut self) {
         Self::xreg_regs()
-            .frmctrl0
+            .frmctrl0()
             .modify(|_, w| unsafe { w.rx_mode().bits(0b00) });
     }
 
@@ -407,7 +408,7 @@ impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     pub fn disable_shr_search(&mut self) {
         Self::xreg_regs()
-            .frmctrl0
+            .frmctrl0()
             .modify(|_, w| unsafe { w.rx_mode().bits(0b11) });
     }
 
@@ -415,7 +416,7 @@ impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     fn enable_autocrc(&mut self) {
         Self::xreg_regs()
-            .frmctrl0
+            .frmctrl0()
             .modify(|_, w| w.autocrc().set_bit());
     }
 
@@ -423,7 +424,7 @@ impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     fn disable_autocrc(&mut self) {
         Self::xreg_regs()
-            .frmctrl0
+            .frmctrl0()
             .modify(|_, w| w.autocrc().clear_bit());
     }
 
@@ -431,7 +432,7 @@ impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     fn enable_autoack(&mut self) {
         Self::xreg_regs()
-            .frmctrl0
+            .frmctrl0()
             .modify(|_, w| w.autoack().set_bit());
     }
 
@@ -439,7 +440,7 @@ impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     fn disable_autoack(&mut self) {
         Self::xreg_regs()
-            .frmctrl0
+            .frmctrl0()
             .modify(|_, w| w.autoack().clear_bit());
     }
 
@@ -451,7 +452,7 @@ impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     pub fn set_rx_mode(&mut self, rx_mode: RxMode) {
         Self::xreg_regs()
-            .frmctrl0
+            .frmctrl0()
             .modify(|_, w| unsafe { w.rx_mode().bits(rx_mode as u8) });
     }
 
@@ -459,7 +460,7 @@ impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     pub fn send_csp_op_code(&self, op_code: CspOpCode) {
         Self::sfr_regs()
-            .rfst
+            .rfst()
             .modify(|_, w| unsafe { w.instr().bits(op_code as u8) });
     }
 
@@ -473,26 +474,30 @@ impl<'p, State> RadioDriver<'p, State> {
             | Event::SrcMatchFound
             | Event::FrameAccepted
             | Event::RxPktDone
-            | Event::RxMaskZero => Self::xreg_regs()
-                .rfirqm0
-                .modify(|r, w| unsafe { w.bits(r.bits() | event.mask()) }),
+            | Event::RxMaskZero => {
+                Self::xreg_regs()
+                    .rfirqm0()
+                    .modify(|r, w| unsafe { w.bits(r.bits() | event.mask()) });
+            }
             Event::TxAckDone
             | Event::TxDone
             | Event::RfIdle
             | Event::CspManInt
             | Event::CspStop
-            | Event::CspWait => Self::xreg_regs()
-                .rfirqm1
-                .modify(|r, w| unsafe { w.bits(r.bits() | event.mask()) }),
+            | Event::CspWait => {
+                Self::xreg_regs()
+                    .rfirqm1()
+                    .modify(|r, w| unsafe { w.bits(r.bits() | event.mask()) });
+            }
             Event::All => {
                 Self::xreg_regs()
-                    .rfirqm0
+                    .rfirqm0()
                     .write(|w| unsafe { w.bits(event.mask()) });
                 Self::xreg_regs()
-                    .rfirqm1
+                    .rfirqm1()
                     .write(|w| unsafe { w.bits(event.mask()) });
             }
-        }
+        };
     }
 
     /// Unlisten to an interrupt
@@ -505,22 +510,26 @@ impl<'p, State> RadioDriver<'p, State> {
             | Event::SrcMatchFound
             | Event::FrameAccepted
             | Event::RxPktDone
-            | Event::RxMaskZero => Self::xreg_regs()
-                .rfirqm0
-                .modify(|r, w| unsafe { w.bits(r.bits() & !event.mask()) }),
+            | Event::RxMaskZero => {
+                Self::xreg_regs()
+                    .rfirqm0()
+                    .modify(|r, w| unsafe { w.bits(r.bits() & !event.mask()) });
+            }
             Event::TxAckDone
             | Event::TxDone
             | Event::RfIdle
             | Event::CspManInt
             | Event::CspStop
-            | Event::CspWait => Self::xreg_regs()
-                .rfirqm1
-                .modify(|r, w| unsafe { w.bits(r.bits() & !event.mask()) }),
-            Event::All => {
-                Self::xreg_regs().rfirqm0.write(|w| unsafe { w.bits(0) });
-                Self::xreg_regs().rfirqm1.write(|w| unsafe { w.bits(0) });
+            | Event::CspWait => {
+                Self::xreg_regs()
+                    .rfirqm1()
+                    .modify(|r, w| unsafe { w.bits(r.bits() & !event.mask()) });
             }
-        }
+            Event::All => {
+                Self::xreg_regs().rfirqm0().write(|w| unsafe { w.bits(0) });
+                Self::xreg_regs().rfirqm1().write(|w| unsafe { w.bits(0) });
+            }
+        };
     }
 
     /// Clear an interrupt
@@ -533,22 +542,26 @@ impl<'p, State> RadioDriver<'p, State> {
             | Event::SrcMatchFound
             | Event::FrameAccepted
             | Event::RxPktDone
-            | Event::RxMaskZero => Self::sfr_regs()
-                .rfirqf0
-                .modify(|r, w| unsafe { w.bits(r.bits() & !event.mask()) }),
+            | Event::RxMaskZero => {
+                Self::sfr_regs()
+                    .rfirqf0()
+                    .modify(|r, w| unsafe { w.bits(r.bits() & !event.mask()) });
+            }
             Event::TxAckDone
             | Event::TxDone
             | Event::RfIdle
             | Event::CspManInt
             | Event::CspStop
-            | Event::CspWait => Self::sfr_regs()
-                .rfirqf1
-                .modify(|r, w| unsafe { w.bits(r.bits() & !event.mask()) }),
-            Event::All => {
-                Self::sfr_regs().rfirqf0.write(|w| unsafe { w.bits(0) });
-                Self::sfr_regs().rfirqf1.write(|w| unsafe { w.bits(0) });
+            | Event::CspWait => {
+                Self::sfr_regs()
+                    .rfirqf1()
+                    .modify(|r, w| unsafe { w.bits(r.bits() & !event.mask()) });
             }
-        }
+            Event::All => {
+                Self::sfr_regs().rfirqf0().write(|w| unsafe { w.bits(0) });
+                Self::sfr_regs().rfirqf1().write(|w| unsafe { w.bits(0) });
+            }
+        };
     }
 
     /// Check if an interrupt is pending
@@ -561,15 +574,16 @@ impl<'p, State> RadioDriver<'p, State> {
             | Event::SrcMatchFound
             | Event::FrameAccepted
             | Event::RxPktDone
-            | Event::RxMaskZero => (Self::sfr_regs().rfirqf0.read().bits() & event.mask()) != 0,
+            | Event::RxMaskZero => (Self::sfr_regs().rfirqf0().read().bits() & event.mask()) != 0,
             Event::TxAckDone
             | Event::TxDone
             | Event::RfIdle
             | Event::CspManInt
             | Event::CspStop
-            | Event::CspWait => (Self::sfr_regs().rfirqf1.read().bits() & event.mask()) != 0,
+            | Event::CspWait => (Self::sfr_regs().rfirqf1().read().bits() & event.mask()) != 0,
             Event::All => {
-                (Self::sfr_regs().rfirqf0.read().bits() | Self::sfr_regs().rfirqf1.read().bits())
+                (Self::sfr_regs().rfirqf0().read().bits()
+                    | Self::sfr_regs().rfirqf1().read().bits())
                     != 0
             }
         }
@@ -579,23 +593,23 @@ impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     pub fn listen_error(&mut self, event: ErrorEvent) {
         Self::xreg_regs()
-            .rferrm
-            .modify(|r, w| unsafe { w.bits(r.bits() | event.mask()) })
+            .rferrm()
+            .modify(|r, w| unsafe { w.bits(r.bits() | event.mask()) });
     }
 
     /// Unlisten to a specific error interrupt
     #[inline]
     pub fn unlisten_error(&mut self, event: ErrorEvent) {
         Self::xreg_regs()
-            .rferrm
-            .modify(|r, w| unsafe { w.bits(r.bits() & !event.mask()) })
+            .rferrm()
+            .modify(|r, w| unsafe { w.bits(r.bits() & !event.mask()) });
     }
 
     /// Clear a specific error interrupt
     #[inline]
     pub fn clear_err(&mut self, event: ErrorEvent) {
         Self::sfr_regs()
-            .rferrf
+            .rferrf()
             .modify(|r, w| unsafe { w.bits(r.bits() & !event.mask()) });
     }
 
@@ -603,24 +617,24 @@ impl<'p, State> RadioDriver<'p, State> {
     #[inline]
     pub fn is_error_interrupt(&self, event: ErrorEvent) -> bool {
         match event {
-            ErrorEvent::NoLock => Self::sfr_regs().rferrf.read().nlock().bit_is_set(),
-            ErrorEvent::RxAbo => Self::sfr_regs().rferrf.read().rxabo().bit_is_set(),
-            ErrorEvent::RxOverf => Self::sfr_regs().rferrf.read().rxoverf().bit_is_set(),
-            ErrorEvent::RxUnderf => Self::sfr_regs().rferrf.read().rxunderf().bit_is_set(),
-            ErrorEvent::TxOverf => Self::sfr_regs().rferrf.read().txoverf().bit_is_set(),
-            ErrorEvent::TxUnderf => Self::sfr_regs().rferrf.read().txunderf().bit_is_set(),
-            ErrorEvent::StrobeErr => Self::sfr_regs().rferrf.read().strobeerr().bit_is_set(),
-            ErrorEvent::All => Self::sfr_regs().rferrf.read().bits() != 0,
+            ErrorEvent::NoLock => Self::sfr_regs().rferrf().read().nlock().bit_is_set(),
+            ErrorEvent::RxAbo => Self::sfr_regs().rferrf().read().rxabo().bit_is_set(),
+            ErrorEvent::RxOverf => Self::sfr_regs().rferrf().read().rxoverf().bit_is_set(),
+            ErrorEvent::RxUnderf => Self::sfr_regs().rferrf().read().rxunderf().bit_is_set(),
+            ErrorEvent::TxOverf => Self::sfr_regs().rferrf().read().txoverf().bit_is_set(),
+            ErrorEvent::TxUnderf => Self::sfr_regs().rferrf().read().txunderf().bit_is_set(),
+            ErrorEvent::StrobeErr => Self::sfr_regs().rferrf().read().strobeerr().bit_is_set(),
+            ErrorEvent::All => Self::sfr_regs().rferrf().read().bits() != 0,
         }
     }
 }
 
 impl<'p> RadioDriver<'p, RadioOff> {
     pub fn new(
-        #[allow(unused_variables)] rfcore_ffsm: &'p mut RFCORE_FFSM,
-        #[allow(unused_variables)] rfcore_xreg: &'p mut RFCORE_XREG,
-        #[allow(unused_variables)] rfcore_sfr: &'p mut RFCORE_SFR,
-        #[allow(unused_variables)] ana_regs: &'p mut ANA_REGS,
+        #[allow(unused_variables)] rfcore_ffsm: &'p mut RfcoreFfsm,
+        #[allow(unused_variables)] rfcore_xreg: &'p mut RfcoreXreg,
+        #[allow(unused_variables)] rfcore_sfr: &'p mut RfcoreSfr,
+        #[allow(unused_variables)] ana_regs: &'p mut AnaRegs,
         tx_channel: dma::Channel,
         rx_channel: dma::Channel,
     ) -> RadioDriver<'p, RadioOff> {
@@ -645,7 +659,7 @@ impl<'p> RadioDriver<'p, RadioOff> {
         let xreg = Self::xreg_regs();
         let ana = Self::ana_regs();
 
-        xreg.ccactrl0
+        xreg.ccactrl0()
             .modify(|_, w| unsafe { w.cca_thr().bits(CCA_THRES as u8) });
 
         if let Some(config) = config {
@@ -657,20 +671,20 @@ impl<'p> RadioDriver<'p, RadioOff> {
         self.send_csp_op_code(CspOpCode::IsFlushRx);
 
         // These are changes from the default values (following contiki-ng)
-        xreg.txfiltcfg.modify(|_, w| unsafe { w.bits(0x09) }); // TX anti-aliasing filter bandwidth
-        xreg.agcctrl1.modify(|_, w| unsafe { w.bits(0x15) }); // AGC target value
-        ana.ivctrl.modify(|_, w| unsafe { w.bits(0x0B) }); // ANA bias current
-        xreg.fscal1.modify(|_, w| unsafe { w.bits(0x01) }); // Tune frequency calibration
+        xreg.txfiltcfg().modify(|_, w| unsafe { w.bits(0x09) }); // TX anti-aliasing filter bandwidth
+        xreg.agcctrl1().modify(|_, w| unsafe { w.bits(0x15) }); // AGC target value
+        ana.ivctrl().modify(|_, w| unsafe { w.bits(0x0B) }); // ANA bias current
+        xreg.fscal1().modify(|_, w| unsafe { w.bits(0x01) }); // Tune frequency calibration
 
         self.enable_autocrc();
         self.enable_autoack();
 
-        xreg.srcmatch.modify(|_, w| unsafe { w.bits(0) }); // Disable source address matching and autopend
+        xreg.srcmatch().modify(|_, w| unsafe { w.bits(0) }); // Disable source address matching and autopend
 
-        xreg.fifopctrl
+        xreg.fifopctrl()
             .modify(|_, w| unsafe { w.fifop_thr().bits(MAX_PACKET_LEN as u8) });
 
-        xreg.txpower.modify(|_, w| unsafe { w.bits(0xD5) }); // This is the recomended TX power
+        xreg.txpower().modify(|_, w| unsafe { w.bits(0xD5) }); // This is the recomended TX power
 
         self.set_channel(Channel::Channel26);
 
@@ -680,7 +694,7 @@ impl<'p> RadioDriver<'p, RadioOff> {
         // Disable peripheral requests
         self.tx_channel.allow_periph_requests(false);
         self.tx_channel
-            .set_destination_end_address(Self::sfr_regs().rfdata.as_ptr() as u32);
+            .set_destination_end_address(Self::sfr_regs().rfdata().as_ptr() as u32);
 
         self.tx_channel
             .set_arbitration_size(dma::Arbitration::Transfer128);
@@ -698,7 +712,7 @@ impl<'p> RadioDriver<'p, RadioOff> {
         // disable peripheral requests
         self.rx_channel.allow_periph_requests(true);
         self.rx_channel
-            .set_source_end_address(Self::sfr_regs().rfdata.as_ptr() as u32);
+            .set_source_end_address(Self::sfr_regs().rfdata().as_ptr() as u32);
 
         self.rx_channel
             .set_arbitration_size(dma::Arbitration::Transfer128);
@@ -729,7 +743,7 @@ impl<'p> RadioDriver<'p, RadioOff> {
     #[inline]
     pub fn set_channel(&mut self, channel: Channel) {
         Self::xreg_regs()
-            .freqctrl
+            .freqctrl()
             .modify(|_, w| unsafe { w.bits(channel_freq_reg_val(channel)) });
     }
 
@@ -743,7 +757,7 @@ impl<'p> RadioDriver<'p, RadioOff> {
 
         // Wait for a valid RSSI reading
         loop {
-            rssi = Self::xreg_regs().rssi.read().rssi_val().bits();
+            rssi = Self::xreg_regs().rssi().read().rssi_val().bits();
 
             if rssi != 0x80 {
                 break;
@@ -772,10 +786,10 @@ impl<'p> RadioDriver<'p, RadioOff> {
     #[inline]
     fn start_mac_timer(&mut self) {
         // sfr.mtctrl.write(|w| w.sync().set_bit().run().set_bit());
-        Self::sfr_regs().mtctrl.write(|w| w.sync().set_bit());
-        Self::sfr_regs().mtctrl.write(|w| w.run().set_bit());
+        Self::sfr_regs().mtctrl().write(|w| w.sync().set_bit());
+        Self::sfr_regs().mtctrl().write(|w| w.run().set_bit());
 
-        while Self::sfr_regs().mtctrl.read().state().bit_is_clear() {}
+        while Self::sfr_regs().mtctrl().read().state().bit_is_clear() {}
 
         // XXX: Contiki-ng does the following:
         // First, the timer is started, then ended and then started again.
@@ -791,9 +805,9 @@ impl<'p> RadioDriver<'p, RadioOff> {
 impl<'p> RadioDriver<'p, RadioOn> {
     pub fn disable(self) -> RadioDriver<'p, RadioOff> {
         // Wait for ongoing TX to complete
-        while Self::xreg_regs().fsmstat1.read().tx_active().bit_is_set() {}
+        while Self::xreg_regs().fsmstat1().read().tx_active().bit_is_set() {}
 
-        if Self::xreg_regs().fsmstat1.read().fifop().bit_is_set() {
+        if Self::xreg_regs().fsmstat1().read().fifop().bit_is_set() {
             self.send_csp_op_code(CspOpCode::IsFlushRx);
         }
 
@@ -832,14 +846,14 @@ impl<'p> RadioDriver<'p, RadioOn> {
         }
 
         // Wait until TX is ready
-        while Self::xreg_regs().fsmstat1.read().tx_active().bit() {}
+        while Self::xreg_regs().fsmstat1().read().tx_active().bit() {}
 
         // Flush the TX buffer
         self.send_csp_op_code(CspOpCode::IsFlushTX);
 
         // Write how much data is going to be send
         Self::sfr_regs()
-            .rfdata
+            .rfdata()
             .write(|w| unsafe { w.bits((payload.len() + CHECKSUM_LEN) as u32) });
 
         // self.tx_channel
@@ -858,7 +872,7 @@ impl<'p> RadioDriver<'p, RadioOn> {
         // Write the data to the FIFO
         for b in payload.iter() {
             Self::sfr_regs()
-                .rfdata
+                .rfdata()
                 .write(|w| unsafe { w.bits((*b) as u32) });
         }
 
@@ -879,12 +893,17 @@ impl<'p> RadioDriver<'p, RadioOn> {
         self.send_csp_op_code(CspOpCode::IsTXOn);
 
         let mut counter = 0;
-        while Self::xreg_regs().fsmstat1.read().tx_active().bit_is_set() && counter < 3 {
+        while Self::xreg_regs().fsmstat1().read().tx_active().bit_is_set() && counter < 3 {
             counter += 1;
             // XXX: delay of 6 µs
         }
 
-        if Self::xreg_regs().fsmstat1.read().tx_active().bit_is_clear() {
+        if Self::xreg_regs()
+            .fsmstat1()
+            .read()
+            .tx_active()
+            .bit_is_clear()
+        {
             // TX was not able to start
             self.send_csp_op_code(CspOpCode::IsFlushTX);
             return Err(RadioError::UnableToStartTx);
@@ -903,13 +922,13 @@ impl<'p> RadioDriver<'p, RadioOn> {
     /// Return the status of TX
     #[inline]
     pub fn sending(&self) -> bool {
-        Self::xreg_regs().fsmstat1.read().tx_active().bit_is_set()
+        Self::xreg_regs().fsmstat1().read().tx_active().bit_is_set()
     }
 
     /// Read a received packet into a buffer
     #[inline]
     pub fn read(&mut self, buffer: &mut [u8]) -> u32 {
-        let len: u32 = Self::sfr_regs().rfdata.read().bits();
+        let len: u32 = Self::sfr_regs().rfdata().read().bits();
 
         if len > 127 {
             // If bigger than max packet len
@@ -951,12 +970,12 @@ impl<'p> RadioDriver<'p, RadioOn> {
         //while self.rx_channel.get_mode() != dma::TransferMode::Stop {}
         //} else {
         for i in 0..len {
-            buffer[i as usize] = Self::sfr_regs().rfdata.read().bits() as u8;
+            buffer[i as usize] = Self::sfr_regs().rfdata().read().bits() as u8;
         }
         //}
 
-        if Self::xreg_regs().fsmstat1.read().fifop().bit_is_set() {
-            if Self::xreg_regs().fsmstat1.read().fifo().bit_is_set() {
+        if Self::xreg_regs().fsmstat1().read().fifop().bit_is_set() {
+            if Self::xreg_regs().fsmstat1().read().fifo().bit_is_set() {
                 cortex_m::asm::sev();
             } else {
                 self.send_csp_op_code(CspOpCode::IsFlushRx);
@@ -987,19 +1006,23 @@ impl<'p> RadioDriver<'p, RadioOn> {
         // SFD is high when transmitting and receiving.
         // TX_ACTIVE is only high when transmittering.
         // Thus TX_ACTIVE must be low to know if we are receiving.
-        Self::xreg_regs().fsmstat1.read().sfd().bit()
-            & Self::xreg_regs().fsmstat1.read().tx_active().bit()
+        Self::xreg_regs().fsmstat1().read().sfd().bit()
+            & Self::xreg_regs().fsmstat1().read().tx_active().bit()
     }
 
     /// Check if the radio driver has just received a packet
     #[inline]
     pub fn received_packet(&self) -> bool {
-        Self::xreg_regs().fsmstat1.read().fifop().bit()
+        Self::xreg_regs().fsmstat1().read().fifop().bit()
     }
 
     #[inline]
     pub fn is_rssi_valid(&self) -> bool {
-        Self::xreg_regs().rssistat.read().rssi_valid().bit_is_set()
+        Self::xreg_regs()
+            .rssistat()
+            .read()
+            .rssi_valid()
+            .bit_is_set()
     }
 
     /// Perform a clear channel assesment to find out if there is a packet in the air
@@ -1008,7 +1031,7 @@ impl<'p> RadioDriver<'p, RadioOn> {
         // Wait until RSSI is valid
         while !self.is_rssi_valid() {}
 
-        Self::xreg_regs().fsmstat1.read().cca().bit_is_set()
+        Self::xreg_regs().fsmstat1().read().cca().bit_is_set()
     }
 
     /// Return random data.
@@ -1016,6 +1039,6 @@ impl<'p> RadioDriver<'p, RadioOn> {
     /// **NOTE**: Use this function to seed the Random Number Generator
     #[inline]
     pub fn random_data(&self) -> u8 {
-        Self::xreg_regs().rfrnd.read().irnd().bit() as u8
+        Self::xreg_regs().rfrnd().read().irnd().bit() as u8
     }
 }
