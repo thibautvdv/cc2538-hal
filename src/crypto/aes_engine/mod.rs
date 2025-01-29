@@ -29,8 +29,8 @@ impl<'p> Crypto<'p> {
     #[inline]
     fn workaround(&mut self) {
         let aes = Self::aes();
-        aes.ctrl_int_cfg.write(|w| w.level().set_bit());
-        aes.ctrl_int_en
+        aes.ctrl_int_cfg().write(|w| w.level().set_bit());
+        aes.ctrl_int_en()
             .write(|w| w.dma_in_done().set_bit().result_av().set_bit());
     }
 
@@ -39,98 +39,98 @@ impl<'p> Crypto<'p> {
         let aes = Self::aes();
         match mode {
             CryptoMode::StoreKeys => {
-                aes.ctrl_alg_sel.write(|w| w.keystore().set_bit());
+                aes.ctrl_alg_sel().write(|w| w.keystore().set_bit());
             }
             CryptoMode::HashAndTag => {
-                aes.ctrl_alg_sel
+                aes.ctrl_alg_sel()
                     .write(|w| w.tag().set_bit().hash().set_bit());
             }
             CryptoMode::Tag => {
-                aes.ctrl_alg_sel.write(|w| w.tag().set_bit());
+                aes.ctrl_alg_sel().write(|w| w.tag().set_bit());
             }
             CryptoMode::Hash => {
-                aes.ctrl_alg_sel.write(|w| w.hash().set_bit());
+                aes.ctrl_alg_sel().write(|w| w.hash().set_bit());
             }
             CryptoMode::Aes => {
-                aes.ctrl_alg_sel.write(|w| w.aes().set_bit());
+                aes.ctrl_alg_sel().write(|w| w.aes().set_bit());
             }
         }
     }
 
     #[inline]
     fn enable_dma_channel0(&mut self) {
-        Self::aes().dmac_ch0_ctrl.write(|w| w.en().set_bit());
+        Self::aes().dmac_ch0_ctrl().write(|w| w.en().set_bit());
     }
 
     #[inline]
     fn set_dma_channel0_ext_addr(&mut self, addr: u32) {
         Self::aes()
-            .dmac_ch0_extaddr
+            .dmac_ch0_extaddr()
             .write(|w| unsafe { w.addr().bits(addr) });
     }
 
     #[inline]
     fn set_dma_channel0_dmalength(&mut self, length: u16) {
         Self::aes()
-            .dmac_ch0_dmalength
+            .dmac_ch0_dmalength()
             .write(|w| unsafe { w.dmalen().bits(length) });
     }
 
     #[inline]
     fn enable_dma_channel1(&mut self) {
-        Self::aes().dmac_ch1_ctrl.write(|w| w.en().set_bit());
+        Self::aes().dmac_ch1_ctrl().write(|w| w.en().set_bit());
     }
 
     #[inline]
     fn set_dma_channel1_ext_addr(&mut self, addr: u32) {
         Self::aes()
-            .dmac_ch1_extaddr
+            .dmac_ch1_extaddr()
             .write(|w| unsafe { w.addr().bits(addr) });
     }
 
     #[inline]
     fn set_dma_channel1_dmalength(&mut self, length: u16) {
         Self::aes()
-            .dmac_ch1_dmalength
+            .dmac_ch1_dmalength()
             .write(|w| unsafe { w.dmalen().bits(length) });
     }
 
     /// Enable the DMA path to the AES engine.
     #[inline]
     fn enable_dma_path(&mut self) {
-        Self::aes().ctrl_alg_sel.modify(|_, w| w.aes().set_bit());
+        Self::aes().ctrl_alg_sel().modify(|_, w| w.aes().set_bit());
     }
 
     /// Clear any outstanding events.
     #[inline]
     fn clear_events(&mut self) {
-        Self::aes().ctrl_int_clr.write(|w| w.result_av().set_bit());
+        Self::aes().ctrl_int_clr().write(|w| w.result_av().set_bit());
     }
 
     #[inline]
     fn is_completed(&self) -> bool {
-        Self::aes().ctrl_int_stat.read().result_av().bit_is_set()
+        Self::aes().ctrl_int_stat().read().result_av().bit_is_set()
     }
 
     /// Preload a key from the key RAM.
     #[inline]
     fn set_key(&mut self, key_area: u32) {
         Self::aes()
-            .key_store_read_area
+            .key_store_read_area()
             .modify(|_, w| unsafe { w.bits(key_area) });
     }
 
     /// Returns `true` when all keys are loaded into the AES engine.
     #[inline]
     fn key_is_set(&mut self) -> bool {
-        Self::aes().key_store_read_area.read().busy().bit_is_clear()
+        Self::aes().key_store_read_area().read().busy().bit_is_clear()
     }
 
     /// Returns `true` when there was an error when loading the key to the AES engine.
     #[inline]
     fn key_load_error(&mut self) -> bool {
         Self::aes()
-            .ctrl_int_stat
+            .ctrl_int_stat()
             .read()
             .key_st_rd_err()
             .bit_is_set()
@@ -140,7 +140,7 @@ impl<'p> Crypto<'p> {
     #[inline]
     fn save_context(&mut self) {
         Self::aes()
-            .aes_ctrl
+            .aes_ctrl()
             .modify(|_, w| w.save_context().set_bit());
     }
 
@@ -148,26 +148,26 @@ impl<'p> Crypto<'p> {
     fn write_dma0(&mut self, data: &[u8]) {
         let aes = Self::aes();
 
-        aes.dmac_ch0_ctrl.modify(|_, w| w.en().set_bit());
-        aes.dmac_ch0_extaddr
+        aes.dmac_ch0_ctrl().modify(|_, w| w.en().set_bit());
+        aes.dmac_ch0_extaddr()
             .modify(|_, w| unsafe { w.addr().bits(data.as_ptr() as u32) });
-        aes.dmac_ch0_dmalength
+        aes.dmac_ch0_dmalength()
             .modify(|_, w| unsafe { w.dmalen().bits(data.len() as u16) });
 
-        while !aes.ctrl_int_stat.read().dma_in_done().bit_is_set() {}
+        while !aes.ctrl_int_stat().read().dma_in_done().bit_is_set() {}
     }
 
     #[inline]
     fn write_dma1(&mut self, data: &[u8]) {
         let aes = Self::aes();
 
-        aes.dmac_ch1_ctrl.modify(|_, w| w.en().set_bit());
-        aes.dmac_ch1_extaddr
+        aes.dmac_ch1_ctrl().modify(|_, w| w.en().set_bit());
+        aes.dmac_ch1_extaddr()
             .modify(|_, w| unsafe { w.addr().bits(data.as_ptr() as u32) });
-        aes.dmac_ch1_dmalength
+        aes.dmac_ch1_dmalength()
             .modify(|_, w| unsafe { w.dmalen().bits(data.len() as u16) });
 
-        while !aes.ctrl_int_stat.read().dma_in_done().bit_is_set() {}
+        while !aes.ctrl_int_stat().read().dma_in_done().bit_is_set() {}
     }
 
     /// Set the IV in the AES engine.
@@ -182,10 +182,10 @@ impl<'p> Crypto<'p> {
 
         let aes = Self::aes();
         unsafe {
-            aes.aes_iv_0.write(|w| w.bits(iv_u32[0]));
-            aes.aes_iv_1.write(|w| w.bits(iv_u32[1]));
-            aes.aes_iv_2.write(|w| w.bits(iv_u32[2]));
-            aes.aes_iv_3.write(|w| w.bits(iv_u32[3]));
+            aes.aes_iv_0().write(|w| w.bits(iv_u32[0]));
+            aes.aes_iv_1().write(|w| w.bits(iv_u32[1]));
+            aes.aes_iv_2().write(|w| w.bits(iv_u32[2]));
+            aes.aes_iv_3().write(|w| w.bits(iv_u32[3]));
         }
     }
 
@@ -195,10 +195,10 @@ impl<'p> Crypto<'p> {
         let mut tag_u32 = [0u32; 4];
 
         let aes = Self::aes();
-        tag_u32[0] = aes.aes_tag_out_0.read().bits();
-        tag_u32[1] = aes.aes_tag_out_1.read().bits();
-        tag_u32[2] = aes.aes_tag_out_2.read().bits();
-        tag_u32[3] = aes.aes_tag_out_3.read().bits();
+        tag_u32[0] = aes.aes_tag_out_0().read().bits();
+        tag_u32[1] = aes.aes_tag_out_1().read().bits();
+        tag_u32[2] = aes.aes_tag_out_2().read().bits();
+        tag_u32[3] = aes.aes_tag_out_3().read().bits();
 
         for (i, c) in tag_u32.iter().enumerate() {
             let b = c.to_le_bytes();
@@ -224,18 +224,18 @@ impl<'p> Crypto<'p> {
         self.clear_events();
 
         // Writing to key_store_size deletes all keys.
-        if aes.key_store_size.read().key_size().bits() != aes_keys.sizes as u8 {
+        if aes.key_store_size().read().key_size().bits() != aes_keys.sizes as u8 {
             unsafe {
-                aes.key_store_size
+                aes.key_store_size()
                     .modify(|_, w| w.key_size().bits(aes_keys.sizes as u8));
             }
         }
 
         // Free possibly already occupied key areas.
         let areas = ((0x1 << aes_keys.count) - 1) << aes_keys.start_area;
-        unsafe { aes.key_store_written_area.write(|w| w.bits(areas)) };
+        unsafe { aes.key_store_written_area().write(|w| w.bits(areas)) };
         // Enable key areas to write.
-        unsafe { aes.key_store_write_area.write(|w| w.bits(areas)) };
+        unsafe { aes.key_store_write_area().write(|w| w.bits(areas)) };
 
         self.enable_dma_channel0();
         self.set_dma_channel0_ext_addr(aes_keys.keys.as_ptr() as u32);
@@ -243,28 +243,28 @@ impl<'p> Crypto<'p> {
 
         while !self.is_completed() {}
 
-        if aes.ctrl_int_stat.read().dma_bus_err().bit_is_set() {
+        if aes.ctrl_int_stat().read().dma_bus_err().bit_is_set() {
             // Clear the error
-            aes.ctrl_int_clr.write(|w| w.dma_bus_err().set_bit());
+            aes.ctrl_int_clr().write(|w| w.dma_bus_err().set_bit());
             //self.disable_master_control();
             return; // Err(CryptoError::DmaBusError);
         }
 
-        if aes.ctrl_int_stat.read().key_st_wr_err().bit_is_set() {
+        if aes.ctrl_int_stat().read().key_st_wr_err().bit_is_set() {
             // Clear the error
-            aes.ctrl_int_clr.write(|w| w.key_st_wr_err().set_bit());
+            aes.ctrl_int_clr().write(|w| w.key_st_wr_err().set_bit());
             //self.disable_master_control();
             return;
         }
 
         //self.ack_interrupt();
-        aes.ctrl_int_clr
+        aes.ctrl_int_clr()
             .write(|w| w.dma_in_done().set_bit().result_av().set_bit());
-        aes.ctrl_alg_sel.write(|w| unsafe { w.bits(0) });
+        aes.ctrl_alg_sel().write(|w| unsafe { w.bits(0) });
 
         //self.disable_master_control();
 
-        if (aes.key_store_written_area.read().bits() & areas) != areas {
+        if (aes.key_store_written_area().read().bits() & areas) != areas {
             return;
         }
     }
@@ -283,9 +283,9 @@ impl<'p> Crypto<'p> {
         }
 
         let aes = Self::aes();
-        aes.ctrl_alg_sel.modify(|_, w| w.aes().set_bit());
+        aes.ctrl_alg_sel().modify(|_, w| w.aes().set_bit());
 
-        aes.ctrl_int_clr
+        aes.ctrl_int_clr()
             .write(|w| w.dma_in_done().set_bit().result_av().set_bit());
 
         self.set_key(key_index);
@@ -301,22 +301,22 @@ impl<'p> Crypto<'p> {
 
         ctrl(aes);
 
-        aes.aes_c_length_0
+        aes.aes_c_length_0()
             .write(|w| unsafe { w.bits(data_in.len() as u32) });
-        aes.aes_c_length_1.write(|w| unsafe { w.bits(0) });
+        aes.aes_c_length_1().write(|w| unsafe { w.bits(0) });
 
         if let Some(adata) = adata {
-            aes.aes_auth_length
+            aes.aes_auth_length()
                 .write(|w| unsafe { w.auth_length().bits(adata.len() as u32) });
 
             if !adata.is_empty() {
                 self.write_dma0(adata);
 
-                if aes.ctrl_int_stat.read().dma_bus_err().bit_is_set() {
+                if aes.ctrl_int_stat().read().dma_bus_err().bit_is_set() {
                     return;
                 }
 
-                aes.ctrl_int_clr.write(|w| w.dma_in_done().set_bit());
+                aes.ctrl_int_clr().write(|w| w.dma_in_done().set_bit());
             }
         }
 
@@ -328,10 +328,10 @@ impl<'p> Crypto<'p> {
             }
         }
 
-        while !(aes.ctrl_int_stat.read().dma_bus_err().bit_is_set()
-            || aes.ctrl_int_stat.read().key_st_rd_err().bit_is_set()
-            || aes.ctrl_int_stat.read().key_st_wr_err().bit_is_set()
-            || aes.ctrl_int_stat.read().result_av().bit_is_set())
+        while !(aes.ctrl_int_stat().read().dma_bus_err().bit_is_set()
+            || aes.ctrl_int_stat().read().key_st_rd_err().bit_is_set()
+            || aes.ctrl_int_stat().read().key_st_wr_err().bit_is_set()
+            || aes.ctrl_int_stat().read().result_av().bit_is_set())
         {}
     }
 }
