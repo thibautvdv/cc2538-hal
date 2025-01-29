@@ -9,8 +9,8 @@ use core::time::Duration;
 
 use crate::pac;
 use cortex_m::peripheral::NVIC;
-
-use pac::interrupt;
+use cortex_m_rt::interrupt;
+use pac::Interrupt as interrupt;
 
 use paste::paste;
 
@@ -94,7 +94,7 @@ macro_rules! timer_registers {
         $(pub struct $name_big;
         impl $name_big {
             pub(crate) fn $name_small(&mut self) -> &$timerx::$name_big {
-                unsafe { &(*$TIMERX::ptr()).$name_small }
+                unsafe { &(*$TIMERX::ptr()).$name_small() }
             }
         })+
     };
@@ -139,27 +139,27 @@ macro_rules! timer {
                 }
 
                 pub struct $type {
-                    pub(crate) cfg: CFG,
-                    pub(crate) ctl: CTL,
-                    pub(crate) sync: SYNC,
-                    pub(crate) imr: IMR,
-                    pub(crate) ris: RIS,
-                    pub(crate) mis: MIS,
-                    pub(crate) icr: ICR,
-                    pub(crate) pp: PP,
+                    pub(crate) cfg: Cfg,
+                    pub(crate) ctl: Ctl,
+                    pub(crate) sync: Sync,
+                    pub(crate) imr: Imr,
+                    pub(crate) ris: Ris,
+                    pub(crate) mis: Mis,
+                    pub(crate) icr: Icr,
+                    pub(crate) pp: Pp,
                 }
 
                 $(
                 pub struct [<Timer $sub_type>]<STATE, TYPE> {
-                    pub(crate) mr: [<T $sub_type MR>],
-                    pub(crate) ilr: [<T $sub_type ILR>],
-                    pub(crate) matcher: [<T $sub_type MATCHR>],
-                    pub(crate) pr: [<T $sub_type PR>],
-                    pub(crate) pmr: [<T $sub_type PMR>],
-                    pub(crate) r: [<T $sub_type R>],
-                    pub(crate) v: [<T $sub_type V>],
-                    pub(crate) ps: [<T $sub_type PS>],
-                    pub(crate) pv: [<T $sub_type PV>],
+                    pub(crate) mr: [<T $sub_type:lower mr>],
+                    pub(crate) ilr: [<T $sub_type:lower ilr>],
+                    pub(crate) matcher: [<T $sub_type:lower matchr>],
+                    pub(crate) pr: [<T $sub_type:lower pr>],
+                    pub(crate) pmr: [<T $sub_type:lower pmr>],
+                    pub(crate) r: [<T $sub_type:lower r>],
+                    pub(crate) v: [<T $sub_type:lower v>],
+                    pub(crate) ps: [<T $sub_type:lower ps>],
+                    pub(crate) pv: [<T $sub_type:lower pv>],
                     _state: PhantomData<STATE>,
                     _type: PhantomData<TYPE>,
                 }
@@ -270,15 +270,15 @@ macro_rules! timer {
                         let timer = unsafe { &* cc2538_pac::$TIMERX::ptr() };
                         self.mr.[<t $sub_type:lower mr>]().modify(|_, w| w.[<t $sub_type:lower mie>]().set_bit());
                         match event {
-                            Event::TimeOut => timer.imr
+                            Event::TimeOut => timer.imr()
                                 .modify(|_, w| w.[<t $sub_type:lower toim>]().set_bit()),
-                            Event::CaptureMatch => timer.imr
+                            Event::CaptureMatch => timer.imr()
                                 .modify(|_, w| w.[<c $sub_type:lower mim>]().set_bit()),
-                            Event::CaptureEvent => timer.imr
+                            Event::CaptureEvent => timer.imr()
                                 .modify(|_, w| w.[<c $sub_type:lower eim>]().set_bit()),
-                            Event::Match => timer.imr
+                            Event::Match => timer.imr()
                                 .modify(|_, w| w.[<t $sub_type:lower mim>]().set_bit()),
-                        }
+                        };
                     }
 
                     /// Unlisten to a specific interrupt.
@@ -292,7 +292,7 @@ macro_rules! timer {
                                 .write(|w| w.[<c $sub_type:lower eim>]().clear_bit()),
                             Event::Match => timer.imr.imr()
                                 .write(|w| w.[<t $sub_type:lower mim>]().clear_bit()),
-                        }
+                        };
 
                         self
                     }
@@ -325,7 +325,7 @@ macro_rules! timer {
 
                                 if self.timer.as_ref().unwrap().has_expired() {
                                     if self.installed_waker {
-                                        NVIC::mask(pac::Interrupt::[<$TIMERX $sub_type>]);
+                                        NVIC::mask(pac::Interrupt::[<$TIMERX:upper $sub_type>]);
                                         atomic::compiler_fence(Ordering::Release);
                                         self.timer.as_ref().unwrap().clear_match();
                                         drop(unsafe { WAKER.take() });
@@ -337,7 +337,7 @@ macro_rules! timer {
                                         unsafe {
                                             WAKER = Some(cx.waker().clone());
                                             atomic::compiler_fence(Ordering::Release);
-                                            NVIC::unmask(pac::Interrupt::[<$TIMERX $sub_type>]);
+                                            NVIC::unmask(pac::Interrupt::[<$TIMERX:upper $sub_type>]);
                                         }
 
                                         self.installed_waker = true;
@@ -345,14 +345,14 @@ macro_rules! timer {
 
                                         #[interrupt]
                                         #[allow(non_snake_case)]
-                                        fn [<$TIMERX $sub_type>]() {
+                                        fn [<$TIMERX:upper $sub_type>]() {
                                             if let Some(waker) = unsafe { WAKER.as_ref() } {
                                                 waker.wake_by_ref();
-                                                NVIC::mask(pac::Interrupt::[<$TIMERX $sub_type>]);
+                                                NVIC::mask(pac::Interrupt::[<$TIMERX:upper $sub_type>]);
                                             }
                                         }
                                     } else {
-                                        unsafe { NVIC::unmask(pac::Interrupt::[<$TIMERX $sub_type>]) };
+                                        unsafe { NVIC::unmask(pac::Interrupt::[<$TIMERX:upper $sub_type>]) };
                                     }
 
                                     Poll::Pending
@@ -405,13 +405,13 @@ macro_rules! timer {
                     /// A timer can only be enabled when it is marked as configured.
                     pub fn enable(&mut self) {
                         let timer = unsafe { &* cc2538_pac::$TIMERX::ptr() };
-                        timer.ctl.modify(|_, w| w.[<t $sub_type:lower stall>]().set_bit());
-                        timer.ctl.modify(|_, w| w.[<t $sub_type:lower en>]().set_bit());
+                        timer.ctl().modify(|_, w| w.[<t $sub_type:lower stall>]().set_bit());
+                        timer.ctl().modify(|_, w| w.[<t $sub_type:lower en>]().set_bit());
                     }
 
                     pub fn disable(self) -> [<Timer $sub_type>]<Uninit, TYPE> {
                         let timer = unsafe { &* cc2538_pac::$TIMERX::ptr() };
-                        timer.ctl.modify(|_, w| w.[<t $sub_type:lower en>]().clear_bit());
+                        timer.ctl().modify(|_, w| w.[<t $sub_type:lower en>]().clear_bit());
 
                         [<Timer $sub_type>] {
                             mr: self.mr,
@@ -441,18 +441,18 @@ macro_rules! timer {
                     /// Check if a match has occured.
                     pub fn has_expired(&self) -> bool {
                         let timer = unsafe { &* cc2538_pac::$TIMERX::ptr() };
-                        timer.mis.read().[<t $sub_type:lower tomis>]().bit_is_set()
+                        timer.mis().read().[<t $sub_type:lower tomis>]().bit_is_set()
                     }
 
                     /// Clear the match.
                     pub fn clear_match(&self) {
                         let timer = unsafe { &* cc2538_pac::$TIMERX::ptr() };
-                        timer.icr.modify(|_, w| w.[<t $sub_type:lower tocint>]().set_bit());
+                        timer.icr().modify(|_, w| w.[<t $sub_type:lower tocint>]().set_bit());
                     }
 
                     pub fn clear_interrupts(&self) {
                         let timer = unsafe { &* cc2538_pac::$TIMERX::ptr() };
-                        timer.icr.modify(|_, w| w.[<t $sub_type:lower tocint>]().set_bit());
+                        timer.icr().modify(|_, w| w.[<t $sub_type:lower tocint>]().set_bit());
                     }
                 }
 
@@ -464,26 +464,26 @@ macro_rules! timer {
                     fn split(self) -> Self::Parts {
                         Parts {
                             timer: $type {
-                                cfg: CFG,
-                                ctl: CTL,
-                                sync: SYNC,
-                                imr: IMR,
-                                ris: RIS,
-                                mis: MIS,
-                                icr: ICR,
-                                pp: PP,
+                                cfg: Cfg,
+                                ctl: Ctl,
+                                sync: Sync,
+                                imr: Imr,
+                                ris: Ris,
+                                mis: Mis,
+                                icr: Icr,
+                                pp: Pp,
                             },
                             $(
                             [<timer $sub_type:lower>]: [<Timer $sub_type>] {
-                                mr: [<T $sub_type MR>],
-                                ilr: [<T $sub_type ILR>],
-                                matcher: [<T $sub_type MATCHR>],
-                                pr: [<T $sub_type PR>],
-                                pmr: [<T $sub_type PMR>],
-                                r: [<T $sub_type R>],
-                                v: [<T $sub_type V>],
-                                ps: [<T $sub_type PS>],
-                                pv: [<T $sub_type PV>],
+                                mr: [<T $sub_type:lower mr>],
+                                ilr: [<T $sub_type:lower ilr>],
+                                matcher: [<T $sub_type:lower matchr>],
+                                pr: [<T $sub_type:lower pr>],
+                                pmr: [<T $sub_type:lower pmr>],
+                                r: [<T $sub_type:lower r>],
+                                v: [<T $sub_type:lower v>],
+                                ps: [<T $sub_type:lower ps>],
+                                pv: [<T $sub_type:lower pv>],
                                 _state: PhantomData,
                                 _type: PhantomData,
                             },
@@ -494,24 +494,24 @@ macro_rules! timer {
 
                 timer_registers! {
                     [
-                        ($TIMERX, $timerx, CFG, cfg),
-                        ($TIMERX, $timerx, CTL, ctl),
-                        ($TIMERX, $timerx, SYNC, sync),
-                        ($TIMERX, $timerx, IMR, imr),
-                        ($TIMERX, $timerx, RIS, ris),
-                        ($TIMERX, $timerx, MIS, mis),
-                        ($TIMERX, $timerx, ICR, icr),
-                        ($TIMERX, $timerx, PP, pp),
+                        ($TIMERX, $timerx, Cfg, cfg),
+                        ($TIMERX, $timerx, Ctl, ctl),
+                        ($TIMERX, $timerx, Sync, sync),
+                        ($TIMERX, $timerx, Imr, imr),
+                        ($TIMERX, $timerx, Ris, ris),
+                        ($TIMERX, $timerx, Mis, mis),
+                        ($TIMERX, $timerx, Icr, icr),
+                        ($TIMERX, $timerx, Pp, pp),
                         $(
-                        ($TIMERX, $timerx, [<T $sub_type MR>], [<t $sub_type:lower mr>]),
-                        ($TIMERX, $timerx, [<T $sub_type ILR>], [<t $sub_type:lower ilr>]),
-                        ($TIMERX, $timerx, [<T $sub_type MATCHR>], [<t $sub_type:lower matchr>]),
-                        ($TIMERX, $timerx, [<T $sub_type PR>], [<t $sub_type:lower pr>]),
-                        ($TIMERX, $timerx, [<T $sub_type PMR>], [<t $sub_type:lower pmr>]),
-                        ($TIMERX, $timerx, [<T $sub_type R>], [<t $sub_type:lower r>]),
-                        ($TIMERX, $timerx, [<T $sub_type V>], [<t $sub_type:lower v>]),
-                        ($TIMERX, $timerx, [<T $sub_type PS>], [<t $sub_type:lower ps>]),
-                        ($TIMERX, $timerx, [<T $sub_type PV>], [<t $sub_type:lower pv>]),
+                        ($TIMERX, $timerx, [<T $sub_type:lower mr>], [<t $sub_type:lower mr>]),
+                        ($TIMERX, $timerx, [<T $sub_type:lower ilr>], [<t $sub_type:lower ilr>]),
+                        ($TIMERX, $timerx, [<T $sub_type:lower matchr>], [<t $sub_type:lower matchr>]),
+                        ($TIMERX, $timerx, [<T $sub_type:lower pr>], [<t $sub_type:lower pr>]),
+                        ($TIMERX, $timerx, [<T $sub_type:lower pmr>], [<t $sub_type:lower pmr>]),
+                        ($TIMERX, $timerx, [<T $sub_type:lower r>], [<t $sub_type:lower r>]),
+                        ($TIMERX, $timerx, [<T $sub_type:lower v>], [<t $sub_type:lower v>]),
+                        ($TIMERX, $timerx, [<T $sub_type:lower ps>], [<t $sub_type:lower ps>]),
+                        ($TIMERX, $timerx, [<T $sub_type:lower pv>], [<t $sub_type:lower pv>]),
                         )+
                     ]
                 }
@@ -523,7 +523,7 @@ macro_rules! timer {
 
 timer!([
     {
-        timer: GPTIMER0,
+        timer: Gptimer0,
         mapped: gptimer0,
         name: Timer0,
         module: timer0,
@@ -533,7 +533,7 @@ timer!([
         ]
     },
     {
-        timer: GPTIMER1,
+        timer: Gptimer1,
         mapped: gptimer1,
         name: Timer1,
         module: timer1,
@@ -543,7 +543,7 @@ timer!([
         ]
     },
     {
-        timer: GPTIMER2,
+        timer: Gptimer2,
         mapped: gptimer2,
         name: Timer2,
         module: timer2,
@@ -553,7 +553,7 @@ timer!([
         ]
     },
     {
-        timer: GPTIMER3,
+        timer: Gptimer3,
         mapped: gptimer3,
         name: Timer3,
         module: timer3,
