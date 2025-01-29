@@ -18,7 +18,7 @@ embedded-hal = "=1.0.0-alpha.5"
 nb = "1.1.0"
 paste = "1.0.14"
 panic-rtt-target = { version = "0.1.2", features = ["cortex-m"] }
-rtt-target = "0.4.0"
+rtt-target = "0.6.1"
 
 [features]
 default = []

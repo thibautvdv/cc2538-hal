@@ -8,6 +8,7 @@ use rt::entry;
 use panic_rtt_target as _;
 
 use rtt_target::{rprintln, rtt_init_print};
+use rtt_target::ChannelMode::BlockIfFull;
 
 use cc2538_hal::{
     crypto::{bignum::BigNum, *},
