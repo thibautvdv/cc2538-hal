@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use cc2538_pac::{SSI0, SSI1};
+use cc2538_pac::{Ssi0, Ssi1};
 
 use crate::sys_ctrl::ClockConfig;
 
@@ -31,24 +31,24 @@ macro_rules! spi {
     ) => {
         impl Spi<$spi, Disabled> {
             pub fn as_master(self) -> Self {
-                unsafe { self.ssi.cr1.write_with_zero(|w| w) };
+                unsafe { self.ssi.cr1().write_with_zero(|w| w) };
                 self
             }
 
             pub fn as_slave(self) -> Self {
-                self.ssi.cr1.modify(|_, w| w.ms().set_bit());
+                self.ssi.cr1().modify(|_, w| w.ms().set_bit());
                 self
             }
 
             /// Don't drive the output.
             /// This is only relevant in slave mode.
             pub fn disable_output(self) -> Self {
-                self.ssi.cr1.modify(|_, w| w.sod().set_bit());
+                self.ssi.cr1().modify(|_, w| w.sod().set_bit());
                 self
             }
 
             pub fn set_clock_source(self, clock_source: ClockSource) -> Self {
-                unsafe { self.ssi.cc.modify(|_, w| w.cs().bits(clock_source as u8)) };
+                unsafe { self.ssi.cc().modify(|_, w| w.cs().bits(clock_source as u8)) };
                 self
             }
 
@@ -58,10 +58,10 @@ macro_rules! spi {
                 let scr = core::cmp::min(core::cmp::max(scr, 1), 256) - 1;
 
                 unsafe {
-                    self.ssi.cpsr.modify(|_, w| w.cpsdvsr().bits(2));
+                    self.ssi.cpsr().modify(|_, w| w.cpsdvsr().bits(2));
                 }
                 unsafe {
-                    self.ssi.cr0.modify(|_, w| w.scr().bits(scr as u8));
+                    self.ssi.cr0().modify(|_, w| w.scr().bits(scr as u8));
                 }
 
                 self
@@ -69,8 +69,8 @@ macro_rules! spi {
 
             pub fn enable(self) -> Spi<$spi, Enabled> {
                 // 8-bit data transfer
-                unsafe { self.ssi.cr0.modify(|_, w| w.dss().bits(0b0111)) };
-                self.ssi.cr1.modify(|_, w| w.sse().set_bit());
+                unsafe { self.ssi.cr0().modify(|_, w| w.dss().bits(0b0111)) };
+                self.ssi.cr1().modify(|_, w| w.sse().set_bit());
                 Spi {
                     ssi: self.ssi,
                     _state: PhantomData,
@@ -80,34 +80,34 @@ macro_rules! spi {
 
         impl Spi<$spi, Enabled> {
             pub fn is_busy(&self) -> bool {
-                self.ssi.sr.read().bsy().bit_is_set()
+                self.ssi.sr().read().bsy().bit_is_set()
             }
 
             pub fn is_receive_fifo_full(&self) -> bool {
-                self.ssi.sr.read().rff().bit_is_set()
+                self.ssi.sr().read().rff().bit_is_set()
             }
 
             pub fn is_receive_fifo_empty(&self) -> bool {
-                !self.ssi.sr.read().rne().bit_is_set()
+                !self.ssi.sr().read().rne().bit_is_set()
             }
 
             pub fn is_send_fifo_full(&self) -> bool {
-                !self.ssi.sr.read().tnf().bit_is_set()
+                !self.ssi.sr().read().tnf().bit_is_set()
             }
 
             pub fn is_send_fifo_empty(&self) -> bool {
-                self.ssi.sr.read().tfe().bit_is_set()
+                self.ssi.sr().read().tfe().bit_is_set()
             }
 
             pub fn read_data(&self) -> u16 {
-                (self.ssi.dr.read().bits() & 0x00ff) as u16
+                (self.ssi.dr().read().bits() & 0x00ff) as u16
             }
 
             pub fn write(&self, data: &[u8]) {
                 for b in data.iter() {
                     while self.is_send_fifo_full() {}
                     unsafe {
-                        self.ssi.dr.write(|w| w.data().bits(*b as u16));
+                        self.ssi.dr().write(|w| w.data().bits(*b as u16));
                     }
                 }
             }
@@ -133,12 +133,12 @@ pub struct Spi<SSI, STATE> {
     _state: PhantomData<STATE>,
 }
 
-impl SpiSsi0Ext for SSI0 {
+impl SpiSsi0Ext for Ssi0 {
     type Parts = Spi<Self, Disabled>;
 
     fn take(self) -> Self::Parts {
         // Disble the SSI
-        self.cr1.modify(|_, w| w.sse().clear_bit());
+        self.cr1().modify(|_, w| w.sse().clear_bit());
 
         Spi {
             ssi: self,
@@ -147,12 +147,12 @@ impl SpiSsi0Ext for SSI0 {
     }
 }
 
-impl SpiSsi1Ext for SSI1 {
+impl SpiSsi1Ext for Ssi1 {
     type Parts = Spi<Self, Disabled>;
 
     fn take(self) -> Self::Parts {
         // Disble the SSI
-        self.cr1.modify(|_, w| w.sse().clear_bit());
+        self.cr1().modify(|_, w| w.sse().clear_bit());
 
         Spi {
             ssi: self,
@@ -161,5 +161,5 @@ impl SpiSsi1Ext for SSI1 {
     }
 }
 
-spi!(SSI0);
-spi!(SSI1);
+spi!(Ssi0);
+spi!(Ssi1);
