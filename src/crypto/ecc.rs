@@ -98,48 +98,48 @@ impl<'p> Crypto<'p> {
         let mut offset: usize = 0;
 
         // Save the address of the A vector.
-        pka.aptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        pka.aptr().write(|w| unsafe { w.bits(offset as u32 >> 2) });
         // Write the scalar to it.
         offset += PkaRam::write_slice(scalar, offset) + curve.size % 2;
 
         // Save the address of the B vector.
-        pka.bptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        pka.bptr().write(|w| unsafe { w.bits(offset as u32 >> 2) });
         // First write the primes, followed by the a and b coef.
         offset += PkaRam::write_slice(curve.prime, offset) + extra_buf as usize;
         offset += PkaRam::write_slice(curve.a_coef, offset) + extra_buf as usize;
         offset += PkaRam::write_slice(curve.b_coef, offset) + extra_buf as usize;
 
         // Save the address of the C vector.
-        pka.cptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        pka.cptr().write(|w| unsafe { w.bits(offset as u32 >> 2) });
         // First write the x coordinate, followed by the y coordinate.
         offset += PkaRam::write_slice(&point.x[..curve.size], offset) + extra_buf as usize;
         offset += PkaRam::write_slice(&point.y[..curve.size], offset) + extra_buf as usize;
 
         // Save the address of the D vector.
-        pka.dptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        pka.dptr().write(|w| unsafe { w.bits(offset as u32 >> 2) });
 
         // Set the size of the A vector.
-        pka.alength.write(|w| unsafe { w.bits(curve.size as u32) });
+        pka.alength().write(|w| unsafe { w.bits(curve.size as u32) });
         // Set the size of the B vector.
-        pka.blength.write(|w| unsafe { w.bits(curve.size as u32) });
+        pka.blength().write(|w| unsafe { w.bits(curve.size as u32) });
 
         // Start the multiplication operation.
         //pka.function.write(|w| unsafe { w.bits(0x0000d000) });
-        pka.function
+        pka.function()
             .write(|w| unsafe { w.sequencer_operations().bits(0b101).run().set_bit() });
         while Self::is_pka_in_use() {}
 
-        if pka.shift.read().bits() != 0x0 && pka.shift.read().bits() != 0x7 {
+        if pka.shift().read().bits() != 0x0 && pka.shift().read().bits() != 0x7 {
             return Err(CryptoError::PkaFailure);
         }
 
-        let msw_val = pka.msw.read().msw_address().bits() as usize;
-        if msw_val == 0 || pka.msw.read().result_is_zero().bit_is_set() {
+        let msw_val = pka.msw().read().msw_address().bits() as usize;
+        if msw_val == 0 || pka.msw().read().result_is_zero().bit_is_set() {
             return Err(CryptoError::PkaFailure);
         }
 
         let len1 = msw_val + 1;
-        let len2 = pka.dptr.read().bits() as usize;
+        let len2 = pka.dptr().read().bits() as usize;
         let len = len1 - len2;
 
         PkaRam::read_slice(&mut result[..len], offset);
@@ -166,48 +166,48 @@ impl<'p> Crypto<'p> {
         let mut offset: usize = 0;
 
         // Save the address of the A vector.
-        pka.aptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        pka.aptr().write(|w| unsafe { w.bits(offset as u32 >> 2) });
         // Write the scalar to it.
         offset += PkaRam::write_slice(&point_a.x[..curve.size], offset) + 4 * extra_buf as usize;
         offset += PkaRam::write_slice(&point_a.y[..curve.size], offset) + 4 * extra_buf as usize;
 
         // Save the address of the B vector.
-        pka.bptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        pka.bptr().write(|w| unsafe { w.bits(offset as u32 >> 2) });
         // First write the primes, followed by the a and b coef.
         offset += PkaRam::write_slice(curve.prime, offset) + 4 * extra_buf as usize;
         offset += PkaRam::write_slice(curve.a_coef, offset) + 4 * extra_buf as usize;
 
         // Save the address of the C vector.
-        pka.cptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        pka.cptr().write(|w| unsafe { w.bits(offset as u32 >> 2) });
         // First write the x coordinate, followed by the y coordinate.
         offset += PkaRam::write_slice(&point_b.x[..curve.size], offset) + 4 * extra_buf as usize;
         offset += PkaRam::write_slice(&point_b.y[..curve.size], offset) + 4 * extra_buf as usize;
 
         // Save the address of the D vector.
-        pka.dptr.write(|w| unsafe { w.bits(offset as u32 >> 2) });
+        pka.dptr().write(|w| unsafe { w.bits(offset as u32 >> 2) });
 
         // Set the size of the A vector.
         //pka.alength.write(|w| unsafe { w.bits(curve.size as u32) });
         // Set the size of the B vector.
-        pka.blength.write(|w| unsafe { w.bits(curve.size as u32) });
+        pka.blength().write(|w| unsafe { w.bits(curve.size as u32) });
 
         // Start the multiplication operation.
         //pka.function.write(|w| unsafe { w.bits(0x0000b000) });
-        pka.function
+        pka.function()
             .write(|w| unsafe { w.sequencer_operations().bits(0b011).run().set_bit() });
         while Self::is_pka_in_use() {}
 
-        if pka.shift.read().bits() != 0x0 && pka.shift.read().bits() != 0x7 {
+        if pka.shift().read().bits() != 0x0 && pka.shift().read().bits() != 0x7 {
             return Err(CryptoError::PkaFailure);
         }
 
-        let msw_val = pka.msw.read().msw_address().bits() as usize;
-        if msw_val == 0 || pka.msw.read().result_is_zero().bit_is_set() {
+        let msw_val = pka.msw().read().msw_address().bits() as usize;
+        if msw_val == 0 || pka.msw().read().result_is_zero().bit_is_set() {
             return Err(CryptoError::PkaFailure);
         }
 
         let len1 = msw_val + 1;
-        let len2 = pka.dptr.read().bits() as usize;
+        let len2 = pka.dptr().read().bits() as usize;
         let len = len1 - len2;
 
         PkaRam::read_slice(&mut result[..len], offset);
