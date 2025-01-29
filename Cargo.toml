@@ -10,7 +10,7 @@ description = "Hardware abstraction layer for the CC2538 System-On-Chip"
 targets = ["thumbv7m-none-eabi"]
 
 [dependencies]
-cc2538-pac = { version = "0.4.0", features = ["rt"] }
+cc2538-pac = { version = "0.8.1", features = ["rt"] }
 cortex-m = { version = "0.7.7", features = ["inline-asm", "critical-section-single-core"] }
 cortex-m-rt = { version = "0.7.3", features = ["device"] }
 circular-queue = "0.2.6"
