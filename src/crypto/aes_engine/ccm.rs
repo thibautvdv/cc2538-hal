@@ -78,7 +78,7 @@ impl<'p> Crypto<'p> {
         let l = ccm_info.len_field_size - 1;
 
         let ctrl = |aes: &aes::RegisterBlock| unsafe {
-            aes.aes_ctrl.modify(|_, w| {
+            aes.aes_ctrl().modify(|_, w| {
                 w.save_context()
                     .set_bit()
                     .ccm_m()
@@ -111,7 +111,7 @@ impl<'p> Crypto<'p> {
         let l = ccm_info.len_field_size - 1;
 
         let ctrl = |aes: &aes::RegisterBlock| unsafe {
-            aes.aes_ctrl.modify(|_, w| {
+            aes.aes_ctrl().modify(|_, w| {
                 w.save_context()
                     .set_bit()
                     .ccm_m()
