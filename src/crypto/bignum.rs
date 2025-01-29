@@ -367,6 +367,7 @@ impl<'p> Crypto<'p> {
     }
 
     /// Division of two bignums.
+    #[allow(unused)]
     pub fn div(num1: &[u32], num2: &[u32], result: &mut [u32]) {
         todo!();
     }
