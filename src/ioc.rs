@@ -37,15 +37,15 @@ macro_rules! ioc {
             $(
             pub struct [<$padover:camel>];
             impl [<$padover:camel>] {
-                pub(crate) fn $padover(&mut self) -> &crate::pac::ioc::[<$padover:upper>] {
-                    unsafe { &(*$IOC::ptr()).$padover }
+                pub(crate) fn $padover(&mut self) -> &crate::pac::ioc::[<$padover:camel>] {
+                    unsafe { &(*$IOC::ptr()).$padover() }
                 }
             }
 
             pub struct [<$padsel:camel>];
             impl [<$padsel:camel>] {
-                pub(crate) fn $padsel(&mut self) -> &crate::pac::ioc::[<$padsel:upper>] {
-                    unsafe { &(*$IOC::ptr()).$padsel }
+                pub(crate) fn $padsel(&mut self) -> &crate::pac::ioc::[<$padsel:camel>] {
+                    unsafe { &(*$IOC::ptr()).$padsel() }
                 }
             }
             )+
@@ -53,8 +53,8 @@ macro_rules! ioc {
             $(
             pub struct [<$pad_out_reg:camel>];
             impl [<$pad_out_reg:camel>] {
-                pub(crate) fn $pad_out_reg(&mut self) -> &crate::pac::ioc::[<$pad_out_reg:upper>] {
-                    unsafe { &(*$IOC::ptr()).$pad_out_reg }
+                pub(crate) fn $pad_out_reg(&mut self) -> &crate::pac::ioc::[<$pad_out_reg:camel>] {
+                    unsafe { &(*$IOC::ptr()).$pad_out_reg() }
                 }
             }
             )+
@@ -79,7 +79,7 @@ macro_rules! ioc {
 }
 
 ioc!(
-    IOC: IOC,
+    IOC: Ioc,
     (pa0_over, pa0_sel),
     (pa1_over, pa1_sel),
     (pa2_over, pa2_sel),
