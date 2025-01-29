@@ -1,5 +1,5 @@
-use crate::pac::UART0;
-use crate::pac::UART1;
+use crate::pac::Uart0;
+use crate::pac::Uart1;
 
 use core::convert::Infallible;
 use core::future::Future;
@@ -16,11 +16,11 @@ use crate::hal::serial;
 pub trait TxPin<UART> {}
 pub trait RxPin<UART> {}
 
-impl TxPin<UART0> for PXx<AltFunc> {}
-impl TxPin<UART1> for PXx<AltFunc> {}
+impl TxPin<Uart0> for PXx<AltFunc> {}
+impl TxPin<Uart1> for PXx<AltFunc> {}
 
-impl RxPin<UART0> for PXx<AltFunc> {}
-impl RxPin<UART1> for PXx<AltFunc> {}
+impl RxPin<Uart0> for PXx<AltFunc> {}
+impl RxPin<Uart1> for PXx<AltFunc> {}
 
 use core::fmt::Write;
 
@@ -67,30 +67,30 @@ macro_rules! uart {
                     let baud_rate = baud_rate;
                     let mut b_rate = baud_rate;
 
-                    uart.cc.modify(|_,w| unsafe { w.cs().bits(0x1) });
+                    uart.cc().modify(|_,w| unsafe { w.cs().bits(0x1) });
 
                     if baud_rate*16 > clk {
                         // Enable high speed mode.
-                        uart.ctl.modify(|_,w| w.hse().set_bit());
+                        uart.ctl().modify(|_,w| w.hse().set_bit());
                         b_rate /= 2;
                     } else {
                         // Disable high speed mode
-                        uart.ctl.modify(|_, w| w.hse().clear_bit());
+                        uart.ctl().modify(|_, w| w.hse().clear_bit());
                     }
 
                     let div = (((clk * 8)/b_rate)+1)/2;
 
                     // Set the baud rate
-                    uart.ibrd.modify(|_, w| unsafe { w.divint().bits((div/64) as u16) });
-                    uart.fbrd.modify(|_, w| unsafe { w.divfrac().bits((div%64) as u8) });
+                    uart.ibrd().modify(|_, w| unsafe { w.divint().bits((div/64) as u16) });
+                    uart.fbrd().modify(|_, w| unsafe { w.divfrac().bits((div%64) as u8) });
 
                     // Set parity, data length and number of stop bits
-                    uart.lcrh.modify(|_, w| unsafe { w.wlen().bits(0x3).pen().clear_bit() });
+                    uart.lcrh().modify(|_, w| unsafe { w.wlen().bits(0x3).pen().clear_bit() });
 
                     // Enable the FIFO
-                    uart.lcrh.modify(|_, w| w.fen().set_bit());
+                    uart.lcrh().modify(|_, w| w.fen().set_bit());
 
-                    uart.ctl.modify(|_, w| w.uarten().set_bit().txe().set_bit().rxe().set_bit());
+                    uart.ctl().modify(|_, w| w.uarten().set_bit().txe().set_bit().rxe().set_bit());
 
                     Self {
                         uart,
@@ -101,17 +101,17 @@ macro_rules! uart {
                 /// Start listening for an interrupt event.
                 pub fn listen(&mut self, event: Event) {
                     match event {
-                        Event::Rxne => self.uart.im.modify(|_, w| w.rxim().set_bit()),
-                        Event::Txe => self.uart.im.modify(|_, w| w.txim().set_bit()),
-                    }
+                        Event::Rxne => self.uart.im().modify(|_, w| w.rxim().set_bit()),
+                        Event::Txe => self.uart.im().modify(|_, w| w.txim().set_bit()),
+                    };
                 }
 
                 /// Stop listening for an interrupt event.
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
-                        Event::Rxne => self.uart.im.modify(|_, w| w.rxim().clear_bit()),
-                        Event::Txe => self.uart.im.modify(|_, w| w.txim().clear_bit()),
-                    }
+                        Event::Rxne => self.uart.im().modify(|_, w| w.rxim().clear_bit()),
+                        Event::Txe => self.uart.im().modify(|_, w| w.txim().clear_bit()),
+                    };
                 }
 
                 /// Splits the `Serial` abstraction into a transmitter and a receiver half.
@@ -138,7 +138,7 @@ macro_rules! uart {
                 fn read(&mut self) -> nb::Result<u8, Self::Error> {
                     let uart = unsafe { &(*$UARTX::ptr()) };
 
-                    Ok(uart.dr.read().data().bits())
+                    Ok(uart.dr().read().data().bits())
                 }
             }
 
@@ -153,10 +153,10 @@ macro_rules! uart {
                 fn write(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
                     let uart = unsafe { &(*$UARTX::ptr()) };
                     // Spin untill there is place in the FIFO
-                    while uart.fr.read().txff().bit_is_set() {}
+                    while uart.fr().read().txff().bit_is_set() {}
 
                     for b in buffer {
-                        uart.dr.write(|w| unsafe { w.data().bits(*b) });
+                        uart.dr().write(|w| unsafe { w.data().bits(*b) });
                     }
 
                     Ok(())
@@ -182,6 +182,6 @@ macro_rules! uart {
 }
 
 uart! {
-    UART0: (uart0),
-    UART1: (uart1),
+    Uart0: (uart0),
+    Uart1: (uart1),
 }
