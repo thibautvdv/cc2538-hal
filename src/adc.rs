@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use cc2538_pac::{soc_adc, CCTEST, RFCORE_XREG, SOC_ADC};
+use cc2538_pac::{soc_adc, Cctest, RfcoreXreg, SocAdc};
 
 use core::marker::ConstParamTy;
 
@@ -59,17 +59,17 @@ pub struct Adc<'p, const CHANNEL: AdcChannel> {
     channel: AdcChannel,
     reference: RefVoltage,
     rate: DecimationRate,
-    _adc: PhantomData<&'p mut SOC_ADC>,
+    _adc: PhantomData<&'p mut SocAdc>,
 }
 
 impl<'p, const CHANNEL: AdcChannel> Adc<'p, CHANNEL> {
     /// Return the register block of the ADC.
     fn regs() -> &'static soc_adc::RegisterBlock {
-        unsafe { &*SOC_ADC::ptr() }
+        unsafe { &*SocAdc::ptr() }
     }
 
     /// Create a new ADC.
-    pub fn new(_adc: &mut SOC_ADC) -> Self {
+    pub fn new(_adc: &mut SocAdc) -> Self {
         Self {
             channel: CHANNEL,
             reference: Default::default(),
@@ -90,23 +90,23 @@ impl<'p, const CHANNEL: AdcChannel> Adc<'p, CHANNEL> {
 
     /// Get the ADC value.
     pub fn read(&self) -> u16 {
-        unsafe { Self::regs().adccon1.modify(|_, w| w.stsel().bits(0b11)) };
+        unsafe { Self::regs().adccon1().modify(|_, w| w.stsel().bits(0b11)) };
 
         let mut cctest_tr0 = 0;
         let mut rfcore_xreg_atest = 0;
         if self.channel == AdcChannel::TemperatureSensor {
             unsafe {
-                cctest_tr0 = (*CCTEST::ptr()).tr0.read().bits();
-                (*CCTEST::ptr()).tr0.modify(|_, w| w.adctm().set_bit());
+                cctest_tr0 = (*Cctest::ptr()).tr0().read().bits();
+                (*Cctest::ptr()).tr0().modify(|_, w| w.adctm().set_bit());
 
-                rfcore_xreg_atest = (*RFCORE_XREG::ptr()).atest.read().bits();
-                (*RFCORE_XREG::ptr())
-                    .atest
+                rfcore_xreg_atest = (*RfcoreXreg::ptr()).atest().read().bits();
+                (*RfcoreXreg::ptr())
+                    .atest()
                     .modify(|_, w| w.atest_ctrl().bits(0x1));
             }
         }
         unsafe {
-            Self::regs().adccon3.write(|w| {
+            Self::regs().adccon3().write(|w| {
                 w.ech()
                     .bits(self.channel as u8)
                     .ediv()
@@ -121,15 +121,15 @@ impl<'p, const CHANNEL: AdcChannel> Adc<'p, CHANNEL> {
         while !self.end_of_conversion() {}
 
         // Read conversion
-        let mut res = Self::regs().adcl.read().bits() & 0xfc;
-        res |= Self::regs().adch.read().bits() << 8;
+        let mut res = Self::regs().adcl().read().bits() & 0xfc;
+        res |= Self::regs().adch().read().bits() << 8;
 
         // Restore radio and temperature sensor.
         if self.channel == AdcChannel::TemperatureSensor {
             unsafe {
-                (*CCTEST::ptr()).tr0.write(|w| w.bits(cctest_tr0));
-                (*RFCORE_XREG::ptr())
-                    .atest
+                (*Cctest::ptr()).tr0().write(|w| w.bits(cctest_tr0));
+                (*RfcoreXreg::ptr())
+                    .atest()
                     .write(|w| w.bits(rfcore_xreg_atest));
             }
         }
@@ -138,7 +138,7 @@ impl<'p, const CHANNEL: AdcChannel> Adc<'p, CHANNEL> {
 
     // Check if the conversion is finished.
     fn end_of_conversion(&self) -> bool {
-        Self::regs().adccon1.read().eoc().bit_is_set()
+        Self::regs().adccon1().read().eoc().bit_is_set()
     }
 }
 
