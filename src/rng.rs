@@ -20,7 +20,7 @@ pub struct RngDriver<'p, STATE> {
     _state: PhantomData<STATE>,
 }
 
-impl<'p, STATE> RngDriver<'p, STATE> {
+impl<STATE> RngDriver<'_, STATE> {
     fn regs() -> &'static soc_adc::RegisterBlock {
         unsafe { &*SocAdc::ptr() }
     }
@@ -40,14 +40,14 @@ impl<'p, STATE> RngDriver<'p, STATE> {
     }
 }
 
-impl<'p, STATE> Drop for RngDriver<'p, STATE> {
+impl<STATE> Drop for RngDriver<'_, STATE> {
     fn drop(&mut self) {
         // Disable the random number generator.
         self.off();
     }
 }
 
-impl<'p> RngDriver<'p, Seeded> {
+impl RngDriver<'_, Seeded> {
     pub fn get_random(&self) -> u32 {
         unsafe {
             Self::regs()

@@ -24,7 +24,7 @@ pub struct AesCbcMac {}
 pub struct AesEcb {}
 pub struct AesGcm {}
 
-impl<'p> Crypto<'p> {
+impl Crypto<'_> {
     /// Workaround for AES registers not retained after PM2.
     #[inline]
     fn workaround(&mut self) {

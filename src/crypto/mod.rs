@@ -56,7 +56,7 @@ pub struct Crypto<'p> {
     _pka: PhantomData<&'p mut Pka>,
 }
 
-impl<'p> Crypto<'p> {
+impl Crypto<'_> {
     #[inline]
     /// Return a pointer to the AES registers.
     fn aes() -> &'static aes::RegisterBlock {

@@ -6,7 +6,7 @@ use super::Crypto;
 
 pub struct AesCtr {}
 
-impl<'p> Crypto<'p> {
+impl Crypto<'_> {
     pub fn ctr_encrypt(
         &mut self,
         key_index: u32,

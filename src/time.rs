@@ -18,9 +18,6 @@ impl MonoTimer {
         dcb.enable_trace();
         dwt.enable_cycle_counter();
 
-        // now the CYCCNT counter can't be stopped or reset
-        drop(dwt);
-
         Self {
             freq: clocks.sys_freq(),
         }

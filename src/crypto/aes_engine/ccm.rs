@@ -32,7 +32,7 @@ impl<'a> AesCcmInfo<'a> {
     }
 }
 
-impl<'p> Crypto<'p> {
+impl Crypto<'_> {
     const CCM_NONCE_LEN: usize = 15;
 
     fn ccm_crypt(

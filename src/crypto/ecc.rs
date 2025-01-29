@@ -80,7 +80,7 @@ pub struct EcPoint<'p> {
     pub y: &'p [u32],
 }
 
-impl<'p> Crypto<'p> {
+impl Crypto<'_> {
     pub fn ecc_mul(
         &mut self,
         curve: &EccCurveInfo,

@@ -61,9 +61,9 @@ pub enum Event {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum Config {
-    Timer32Bit = 0x0,
-    Clock32Bit = 0x1,
-    Timer16Bit = 0x4,
+    Timer32 = 0x0,
+    Clock32 = 0x1,
+    Timer16 = 0x4,
 }
 
 /// State of the timer where the timer is uninitialised.
@@ -173,7 +173,7 @@ macro_rules! timer {
 
                     /// Configre the timer as a one shot timer.
                     pub fn into_one_shot_timer(mut self, timer: &mut $type) -> [<Timer $sub_type>]<Uninit, OneShotTimer> {
-                        unsafe { timer.cfg.cfg().modify(|_, w| w.gptmcfg().bits(Config::Timer16Bit as u8)) };
+                        unsafe { timer.cfg.cfg().modify(|_, w| w.gptmcfg().bits(Config::Timer16 as u8)) };
                         unsafe { self.mr.[<t $sub_type:lower mr>]().modify(|_, w| w.[<t $sub_type:lower mr>]().bits(Mode::OneShot as u8)) };
 
                         [<Timer $sub_type>] {
@@ -193,7 +193,7 @@ macro_rules! timer {
 
                     /// Configure the timer as a periodic timer.
                     pub fn into_periodic_timer(mut self, timer: &mut $type) -> [<Timer $sub_type>]<Uninit, PeriodicTimer> {
-                        unsafe { timer.cfg.cfg().modify(|_, w| w.gptmcfg().bits(Config::Timer16Bit as u8)) };
+                        unsafe { timer.cfg.cfg().modify(|_, w| w.gptmcfg().bits(Config::Timer16 as u8)) };
                         unsafe { self.mr.[<t $sub_type:lower mr>]().modify(|_, w| w.[<t $sub_type:lower mr>]().bits(Mode::Periodic as u8)) };
 
                         [<Timer $sub_type>] {
@@ -311,7 +311,7 @@ macro_rules! timer {
                 }
 
                 impl [<Timer $sub_type>]<Uninit, OneShotTimer> {
-                    pub async fn wait<'a>(mut self, dur: Duration, config: &'a ClockConfig) -> Self {
+                    pub async fn wait(mut self, dur: Duration, config: &ClockConfig) -> Self {
                         struct Wait {
                             timer: Option<[<Timer $sub_type>]<Configured, OneShotTimer>>,
                             installed_waker: bool,

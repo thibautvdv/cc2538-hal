@@ -122,7 +122,7 @@ impl<const MAX_LEN: usize> BigNum<MAX_LEN> {
     }
 }
 
-impl<'p> Crypto<'p> {
+impl Crypto<'_> {
     #[inline]
     fn set_a_ptr(offset: usize) {
         Self::pka().aptr().write(|w| unsafe { w.bits(offset as u32) });

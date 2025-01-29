@@ -62,7 +62,7 @@ pub struct Adc<'p, const CHANNEL: AdcChannel> {
     _adc: PhantomData<&'p mut SocAdc>,
 }
 
-impl<'p, const CHANNEL: AdcChannel> Adc<'p, CHANNEL> {
+impl<const CHANNEL: AdcChannel> Adc<'_, CHANNEL> {
     /// Return the register block of the ADC.
     fn regs() -> &'static soc_adc::RegisterBlock {
         unsafe { &*SocAdc::ptr() }
@@ -142,7 +142,7 @@ impl<'p, const CHANNEL: AdcChannel> Adc<'p, CHANNEL> {
     }
 }
 
-impl<'p> Adc<'p, { AdcChannel::TemperatureSensor }> {
+impl Adc<'_, { AdcChannel::TemperatureSensor }> {
     /// Return a temperature value.
     pub fn get_converted_temperature(&self) -> u32 {
         let val = self.read();

@@ -66,7 +66,6 @@ macro_rules! uart {
                     RX: RxPin<$UARTX>,
                 {
                     let clk = clocks.io_freq();
-                    let baud_rate = baud_rate;
                     let mut b_rate = baud_rate;
 
                     uart.cc().modify(|_,w| unsafe { w.cs().bits(0x1) });

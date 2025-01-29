@@ -276,7 +276,7 @@ pub struct RadioDriver<'p, State> {
     _state: PhantomData<State>,
 }
 
-impl<'p, State> RadioDriver<'p, State> {
+impl<State> RadioDriver<'_, State> {
     #[inline]
     fn ffsm_regs() -> &'static rfcore_ffsm::RegisterBlock {
         unsafe { &*RfcoreFfsm::ptr() }

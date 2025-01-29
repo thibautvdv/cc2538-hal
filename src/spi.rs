@@ -54,7 +54,7 @@ macro_rules! spi {
 
             pub fn set_bit_rate(self, bit_rate: u32, clock_config: ClockConfig) -> Self {
                 let div = 2 * bit_rate;
-                let scr = (clock_config.sys_freq() + div - 1) / div;
+                let scr = clock_config.sys_freq().div_ceil(div);
                 let scr = core::cmp::min(core::cmp::max(scr, 1), 256) - 1;
 
                 unsafe {
