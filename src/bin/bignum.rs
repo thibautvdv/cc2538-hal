@@ -1,6 +1,5 @@
 #![no_main]
 #![no_std]
-#![feature(bench_black_box)]
 
 use cortex_m::asm;
 use cortex_m_rt as rt;
@@ -34,7 +33,7 @@ fn inner_main() -> Result<(), &'static str> {
     core_periph.DWT.enable_cycle_counter();
 
     // Setup the clock
-    let mut sys_ctrl = periph.SYS_CTRL.constrain();
+    let mut sys_ctrl = periph.sys_ctrl.constrain();
     sys_ctrl.set_sys_div(ClockDiv::Clock32Mhz);
     sys_ctrl.set_io_div(ClockDiv::Clock32Mhz);
     sys_ctrl.enable_radio_in_active_mode();
@@ -50,7 +49,7 @@ fn inner_main() -> Result<(), &'static str> {
     sys_ctrl.reset_pka();
     sys_ctrl.clear_reset_pka();
 
-    let _crypto = Crypto::new(&mut periph.AES, &mut periph.PKA);
+    let _crypto = Crypto::new(&mut periph.aes, &mut periph.pka);
 
     let mut num1 = [0u32; 4];
     num1[0] = 4;
@@ -111,26 +110,26 @@ fn inner_main() -> Result<(), &'static str> {
     rprintln!("");
     rprintln!("Operations with raw slices:");
 
-    let len = Crypto::add(&num1, &num2, &mut result).unwrap();
+    let len = Crypto::add(num1, num2, &mut result).unwrap();
     rprintln!("Addition: {:0x?}", &result[..len]);
 
-    let len = Crypto::sub(&num2, &num1, &mut result).unwrap();
+    let len = Crypto::sub(num2, num1, &mut result).unwrap();
     rprintln!("Subtract: {:0x?}", &result[..len]);
 
-    let len = Crypto::mul(&num1, &num2, &mut result).unwrap();
+    let len = Crypto::mul(num1, num2, &mut result).unwrap();
     rprintln!("Multiplication: {:0x?}", &result[..len]);
 
     //crypto.div(&mut num1, &mut num2, &mut result);
     //rprintln!("Division: {:0x?}", result);
 
-    Crypto::modulo(&num1, &num2, &mut result);
+    let _ = Crypto::modulo(num1, num2, &mut result);
     rprintln!("Modulo: {:0x?}", result);
 
-    let len = Crypto::inv_modulo(&num1, &num2, &mut result);
+    let _ = Crypto::inv_modulo(&num1, &num2, &mut result);
     rprintln!("Inverse modulo: {:0x?}", result);
 
     let base = [0x0fu32; 4];
-    let len = Crypto::exp(&num1, &num2, &base, &mut result);
+    Crypto::exp(num1, num2, base, &mut result);
     rprintln!("Exponentiate: {:0x?}", result);
 
     loop {

@@ -1,6 +1,5 @@
 #![no_main]
 #![no_std]
-#![feature(bench_black_box)]
 
 use cc2538_hal::crypto::aes_engine::ccm::AesCcmInfo;
 use cc2538_hal::crypto::aes_engine::keys::{AesKey, AesKeySize, AesKeys};
@@ -33,7 +32,7 @@ fn inner_main() -> Result<(), &'static str> {
     core_periph.DWT.enable_cycle_counter();
 
     // Setup the clock
-    let mut sys_ctrl = periph.SYS_CTRL.constrain();
+    let mut sys_ctrl = periph.sys_ctrl.constrain();
     sys_ctrl.set_sys_div(ClockDiv::Clock32Mhz);
     sys_ctrl.set_io_div(ClockDiv::Clock32Mhz);
     sys_ctrl.enable_radio_in_active_mode();
@@ -49,7 +48,7 @@ fn inner_main() -> Result<(), &'static str> {
     sys_ctrl.reset_pka();
     sys_ctrl.clear_reset_pka();
 
-    let mut aes_crypto = Crypto::new(&mut periph.AES, &mut periph.PKA);
+    let mut aes_crypto = Crypto::new(&mut periph.aes, &mut periph.pka);
 
     let key = crate::aes_engine::keys::AesKey::Key128([
         0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,

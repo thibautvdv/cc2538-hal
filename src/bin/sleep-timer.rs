@@ -27,7 +27,7 @@ fn inner_main() -> Result<(), &'static str> {
     let periph = unsafe { pac::Peripherals::steal() };
 
     // Setup the clock
-    let mut sys_ctrl = periph.SYS_CTRL.constrain();
+    let mut sys_ctrl = periph.sys_ctrl.constrain();
     sys_ctrl.set_sys_div(ClockDiv::Clock16Mhz);
     sys_ctrl.set_io_div(ClockDiv::Clock16Mhz);
     sys_ctrl.enable_uart0_in_active_mode();

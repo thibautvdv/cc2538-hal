@@ -1,22 +1,19 @@
 #![no_main]
 #![no_std]
-#![feature(bench_black_box)]
 
 use core::hint::black_box;
 
 use cortex_m::asm;
+use cortex_m::peripheral::DWT;
 use cortex_m_rt as rt;
-use pac::DWT;
 use rt::entry;
 
 use panic_rtt_target as _;
 
 use rtt_target::{rprintln, rtt_init_print};
 
-use cc2538_hal::{crypto::*, gpio::*, ioc::*, serial::*, sys_ctrl::*};
+use cc2538_hal::{crypto::*, sys_ctrl::*};
 use cc2538_pac as pac;
-
-use core::fmt::Write;
 
 #[entry]
 fn main() -> ! {
@@ -36,7 +33,7 @@ fn inner_main() -> Result<(), &'static str> {
     core_periph.DWT.enable_cycle_counter();
 
     // Setup the clock
-    let mut sys_ctrl = periph.SYS_CTRL.constrain();
+    let mut sys_ctrl = periph.sys_ctrl.constrain();
     sys_ctrl.set_sys_div(ClockDiv::Clock32Mhz);
     sys_ctrl.set_io_div(ClockDiv::Clock32Mhz);
     sys_ctrl.enable_radio_in_active_mode();
@@ -48,7 +45,7 @@ fn inner_main() -> Result<(), &'static str> {
     let mut sys_ctrl = sys_ctrl.freeze();
     sys_ctrl.clear_reset_aes();
 
-    let mut sha256 = Crypto::new(&mut periph.AES, &mut periph.PKA);
+    let mut sha256 = Crypto::new(&mut periph.aes, &mut periph.pka);
 
     let data: [(&[u8], &[u8]); 7] = [
         (
