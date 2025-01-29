@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use crate::sys_ctrl::ClockConfig;
-use cc2538_pac::{I2CM, I2CS};
+use cc2538_pac::I2cm;
 use cortex_m::asm::delay;
 
 use embedded_hal::i2c::blocking::*;
@@ -41,7 +41,7 @@ pub trait I2csExt {
     fn take(self) -> Self::Parts;
 }
 
-impl I2cmExt for I2CM {
+impl I2cmExt for I2cm {
     type Parts = I2cMaster<Disabled>;
 
     fn take(self) -> Self::Parts {
@@ -54,7 +54,7 @@ impl I2cmExt for I2CM {
 
 #[derive(Debug)]
 pub struct I2cMaster<STATE = Disabled> {
-    i2cm: I2CM,
+    i2cm: I2cm,
     _state: PhantomData<STATE>,
 }
 
@@ -64,12 +64,14 @@ impl<STATE> I2cMaster<STATE> {
     fn set_slave_address(&self, addr: u8, op: Operation) {
         match op {
             Operation::Read => unsafe {
-                self.i2cm.sa.modify(|_, w| w.sa().bits(addr).rs().set_bit())
+                self.i2cm
+                    .sa()
+                    .modify(|_, w| w.sa().bits(addr).rs().set_bit());
             },
             Operation::Write => unsafe {
                 self.i2cm
-                    .sa
-                    .modify(|_, w| w.sa().bits(addr).rs().clear_bit())
+                    .sa()
+                    .modify(|_, w| w.sa().bits(addr).rs().clear_bit());
             },
         }
     }
@@ -78,7 +80,7 @@ impl<STATE> I2cMaster<STATE> {
 impl I2cMaster<Disabled> {
     /// Enable the I2C master module.
     pub fn enable(self) -> I2cMaster<Enabled> {
-        self.i2cm.cr.modify(|_, w| w.mfe().set_bit());
+        self.i2cm.cr().modify(|_, w| w.mfe().set_bit());
 
         I2cMaster {
             i2cm: self.i2cm,
@@ -91,7 +93,7 @@ impl I2cMaster<Enabled> {
     /// Set the bit rate of the I2C bus.
     pub fn set_bit_rate(&self, bit_rate: u32, clock_config: ClockConfig) {
         unsafe {
-            self.i2cm.tpr.modify(|_, w| {
+            self.i2cm.tpr().modify(|_, w| {
                 w.tpr().bits(
                     ((clock_config.sys_freq() + (2 * 10 * bit_rate)) / (2 * 10 * bit_rate)) as u8
                         - 1,
@@ -109,13 +111,13 @@ impl I2cMaster<Enabled> {
 
     /// Get data from the data buffer.
     fn get_data(&self) -> u8 {
-        self.i2cm.dr.read().data().bits()
+        self.i2cm.dr().read().data().bits()
     }
 
     /// Put data into the data buffer.
     fn put_data(&self, data: u8) {
         unsafe {
-            self.i2cm.dr.write(|w| w.data().bits(data));
+            self.i2cm.dr().write(|w| w.data().bits(data));
         }
     }
 
