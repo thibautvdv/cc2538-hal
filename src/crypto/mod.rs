@@ -2,7 +2,7 @@ use core::convert::TryInto;
 use core::default;
 use core::marker::PhantomData;
 
-use cc2538_pac::{aes, pka, AES, PKA};
+use cc2538_pac::{aes, pka, Aes, Pka};
 use rtt_target::rprintln;
 
 pub mod aes_engine;
@@ -52,21 +52,21 @@ pub enum CryptoError {
 }
 
 pub struct Crypto<'p> {
-    _aes: PhantomData<&'p mut AES>,
-    _pka: PhantomData<&'p mut PKA>,
+    _aes: PhantomData<&'p mut Aes>,
+    _pka: PhantomData<&'p mut Pka>,
 }
 
 impl<'p> Crypto<'p> {
     #[inline]
     /// Return a pointer to the AES registers.
     fn aes() -> &'static aes::RegisterBlock {
-        unsafe { &*AES::ptr() }
+        unsafe { &*Aes::ptr() }
     }
 
     #[inline]
     /// Return a pointer to the PKA registers.
     fn pka() -> &'static pka::RegisterBlock {
-        unsafe { &*PKA::ptr() }
+        unsafe { &*Pka::ptr() }
     }
 
     pub fn reset(&mut self) {
@@ -77,17 +77,17 @@ impl<'p> Crypto<'p> {
 
     /// Check if the AES resource is in use.
     pub fn is_aes_in_use() -> bool {
-        Self::aes().ctrl_alg_sel.read().bits() != 0
+        Self::aes().ctrl_alg_sel().read().bits() != 0
     }
 
     /// Check if the PKA resource is in use.
     pub fn is_pka_in_use() -> bool {
-        Self::pka().function.read().run().bit_is_set()
+        Self::pka().function().read().run().bit_is_set()
     }
 
     /// Check if the result of the AES operation is available.
     fn is_aes_completed() -> bool {
-        Self::aes().ctrl_int_stat.read().result_av().bit_is_set()
+        Self::aes().ctrl_int_stat().read().result_av().bit_is_set()
     }
 
     ///// Check if the result of the PKA operation is available.
@@ -99,8 +99,8 @@ impl<'p> Crypto<'p> {
 impl<'p> Crypto<'p> {
     /// Create a new crypto instance.
     pub fn new(
-        #[allow(unused_variables)] aes: &'p mut AES,
-        #[allow(unused_variables)] pka: &'p mut PKA,
+        #[allow(unused_variables)] aes: &'p mut Aes,
+        #[allow(unused_variables)] pka: &'p mut Pka,
     ) -> Self {
         Self {
             _aes: PhantomData,
