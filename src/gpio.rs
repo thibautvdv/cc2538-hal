@@ -137,7 +137,7 @@ macro_rules! gpio {
                 match &self.gpio {
                     $(
                         Gpio::$gpio_enum => {
-                            unsafe { (*$GPIOX::ptr()).afsel.modify(|r,w| {
+                            unsafe { (*$GPIOX::ptr()).afsel().modify(|r,w| {
                                 w.afsel().bits(
                                     (r.afsel().bits() & !(1 << self.pin)) | ((set as u8) << self.pin))
                             }); }
@@ -317,8 +317,8 @@ macro_rules! gpio {
                 pub struct DIR;
 
                 impl DIR {
-                    pub(crate) fn dir(&mut self) -> &$gpioy::DIR {
-                        unsafe { &(*$GPIOX::ptr()).dir }
+                    pub(crate) fn dir(&mut self) -> &$gpioy::Dir {
+                        unsafe { &(*$GPIOX::ptr()).dir() }
                     }
                 }
 
@@ -327,8 +327,8 @@ macro_rules! gpio {
                 pub struct AFSEL;
 
                 impl AFSEL {
-                    pub(crate) fn afsel(&mut self) -> &$gpioy::AFSEL {
-                        unsafe { &(*$GPIOX::ptr()).afsel }
+                    pub(crate) fn afsel(&mut self) -> &$gpioy::Afsel {
+                        unsafe { &(*$GPIOX::ptr()).afsel() }
                     }
                 }
 
@@ -501,7 +501,7 @@ macro_rules! gpio {
 gpio!(
 [
     {
-        GPIO: GPIO_A,
+        GPIO: GpioA,
         gpio_enum: GpioA,
         gpio: gpioa,
         gpio_mapped: gpio_a,
@@ -518,7 +518,7 @@ gpio!(
         ],
     },
     {
-        GPIO: GPIO_B,
+        GPIO: GpioB,
         gpio_enum: GpioB,
         gpio: gpiob,
         gpio_mapped: gpio_b,
@@ -535,7 +535,7 @@ gpio!(
         ],
     },
     {
-        GPIO: GPIO_C,
+        GPIO: GpioC,
         gpio_enum: GpioC,
         gpio: gpioc,
         gpio_mapped: gpio_c,
@@ -552,7 +552,7 @@ gpio!(
         ],
     },
     {
-        GPIO: GPIO_D,
+        GPIO: GpioD,
         gpio_enum: GpioD,
         gpio: gpiod,
         gpio_mapped: gpio_d,
