@@ -2,7 +2,7 @@
 
 use core::marker::PhantomData;
 
-use cc2538_pac::UDMA;
+use cc2538_pac::Udma;
 use cortex_m::interrupt::free;
 
 pub struct Disabled;
@@ -39,11 +39,11 @@ pub trait DmaExt {
 }
 
 pub struct Dma<STATE> {
-    udma: UDMA,
+    udma: Udma,
     _state: PhantomData<STATE>,
 }
 
-impl DmaExt for UDMA {
+impl DmaExt for Udma {
     type Part = Dma<Disabled>;
 
     fn constrain(self) -> Self::Part {
@@ -57,13 +57,13 @@ impl DmaExt for UDMA {
 impl<STATE> Dma<STATE> {
     #[inline]
     pub fn get_state(&self) -> DmaState {
-        let state = unsafe { (*cc2538_pac::UDMA::ptr()).stat.read().state().bits() };
+        let state = unsafe { (*Udma::ptr()).stat().read().state().bits() };
         state.into()
     }
 
     /// Return the resources
     #[inline]
-    pub fn free(self) -> UDMA {
+    pub fn free(self) -> Udma {
         self.udma
     }
 }
@@ -74,12 +74,12 @@ impl Dma<Disabled> {
     #[inline]
     pub fn enable(self) -> Dma<Enabled> {
         // First enable MASTEREN
-        self.udma.cfg.write(|w| w.masten().set_bit());
+        self.udma.cfg().write(|w| w.masten().set_bit());
 
         let addr = { unsafe { DMA_CHANNEL_CONFIG.0.as_ptr() as u32 } };
 
         // Write the base address of the control table.
-        self.udma.ctlbase.write(|w| unsafe { w.bits(addr) });
+        self.udma.ctlbase().write(|w| unsafe { w.bits(addr) });
 
         Dma {
             udma: self.udma,
@@ -114,8 +114,8 @@ impl Channel {
     #[inline]
     pub fn enable(&self) {
         free(|_| unsafe {
-            (*cc2538_pac::UDMA::ptr())
-                .enaset
+            (*Udma::ptr())
+                .enaset()
                 .modify(|r, w| w.bits(r.bits() | (1 << self.channel)));
         });
     }
@@ -125,11 +125,7 @@ impl Channel {
     /// XXX should return a future
     #[inline]
     pub fn request(&self) {
-        free(|_| unsafe {
-            (*cc2538_pac::UDMA::ptr())
-                .swreq
-                .write(|w| w.bits(1 << self.channel))
-        });
+        free(|_| unsafe { (*Udma::ptr()).swreq().write(|w| w.bits(1 << self.channel)) });
     }
 
     /// Get the current mode of the channel
@@ -162,14 +158,14 @@ impl Channel {
     pub fn allow_periph_requests(&self, allow: bool) {
         if !allow {
             free(|_| unsafe {
-                (*cc2538_pac::UDMA::ptr())
-                    .reqmaskset
+                (*Udma::ptr())
+                    .reqmaskset()
                     .modify(|r, w| w.bits(r.bits() | (1 << self.channel)));
             });
         } else {
             free(|_| unsafe {
-                (*cc2538_pac::UDMA::ptr())
-                    .reqmaskclr
+                (*Udma::ptr())
+                    .reqmaskclr()
                     .write(|w| w.bits(1 << self.channel));
             });
         }
@@ -180,13 +176,13 @@ impl Channel {
     pub fn set_priority(&self, priority: Priority) {
         match priority {
             Priority::Default => free(|_| unsafe {
-                (*cc2538_pac::UDMA::ptr())
-                    .prioclr
+                (*Udma::ptr())
+                    .prioclr()
                     .write(|w| w.bits(1 << self.channel));
             }),
             Priority::High => free(|_| unsafe {
-                (*cc2538_pac::UDMA::ptr())
-                    .prioset
+                (*Udma::ptr())
+                    .prioset()
                     .modify(|r, w| w.bits(r.bits() | (1 << self.channel)));
             }),
         }
@@ -197,15 +193,13 @@ impl Channel {
         self.alternate = alternate;
         if self.alternate {
             free(|_| unsafe {
-                (*cc2538_pac::UDMA::ptr())
-                    .altset
+                (*Udma::ptr())
+                    .altset()
                     .modify(|r, w| w.bits(r.bits() | (1 << self.channel)));
             });
         } else {
             free(|_| unsafe {
-                (*cc2538_pac::UDMA::ptr())
-                    .altclr
-                    .write(|w| w.bits(1 << self.channel));
+                (*Udma::ptr()).altclr().write(|w| w.bits(1 << self.channel));
             });
         }
     }
@@ -215,24 +209,24 @@ impl Channel {
         let shift = (self.channel * 4) % 32;
         free(|_| match self.channel {
             0..=7 => unsafe {
-                (*cc2538_pac::UDMA::ptr()).chmap0.modify(|r, w| {
+                (*Udma::ptr()).chmap0().modify(|r, w| {
                     w.bits((r.bits() & !(0b1111 << shift)) | ((assignement as u32) << shift))
                 });
             },
             8..=15 => unsafe {
-                (*cc2538_pac::UDMA::ptr()).chmap1.modify(|r, w| {
+                (*Udma::ptr()).chmap1().modify(|r, w| {
                     w.bits((r.bits() & !(0b1111 << shift)) | ((assignement as u32) << shift))
                 });
             },
             16..=23 => unsafe {
-                (*cc2538_pac::UDMA::ptr()).chmap2.modify(|r, w| {
+                (*Udma::ptr()).chmap2().modify(|r, w| {
                     w.bits((r.bits() & !(0b1111 << shift)) | ((assignement as u32) << shift))
-                })
+                });
             },
             24..=31 => unsafe {
-                (*cc2538_pac::UDMA::ptr()).chmap3.modify(|r, w| {
+                (*Udma::ptr()).chmap3().modify(|r, w| {
                     w.bits((r.bits() & !(0b1111 << shift)) | ((assignement as u32) << shift))
-                })
+                });
             },
             _ => unreachable!(),
         });
@@ -285,14 +279,14 @@ impl Channel {
     pub fn use_burst(&mut self, use_burst: bool) {
         if use_burst {
             free(|_| unsafe {
-                (*cc2538_pac::UDMA::ptr())
-                    .useburstset
+                (*Udma::ptr())
+                    .useburstset()
                     .modify(|r, w| w.bits(r.bits() | (1 << self.channel)));
             });
         } else {
             free(|_| unsafe {
-                (*cc2538_pac::UDMA::ptr())
-                    .useburstclr
+                (*Udma::ptr())
+                    .useburstclr()
                     .write(|w| w.bits(1 << self.channel));
             });
         }
