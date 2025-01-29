@@ -4,9 +4,6 @@ use crate::sys_ctrl::ClockConfig;
 use cc2538_pac::I2cm;
 use cortex_m::asm::delay;
 
-use embedded_hal::i2c::blocking::*;
-use embedded_hal::i2c::*;
-
 #[derive(Debug)]
 pub struct Disabled;
 #[derive(Debug)]
@@ -197,34 +194,5 @@ impl I2cMaster<Enabled> {
     /// Check if the I2C bus is busy.
     pub fn is_busy(&self) -> bool {
         self.i2cm.stat().read().busy().bit_is_set()
-    }
-}
-
-impl Write<SevenBitAddress> for I2cMaster<Enabled> {
-    type Error = (); // TODO(thvdeld): implement errors
-
-    fn write(&mut self, address: SevenBitAddress, bytes: &[u8]) -> Result<(), Self::Error> {
-        self.burst_write(address, bytes)
-    }
-}
-
-impl WriteRead<SevenBitAddress> for I2cMaster<Enabled> {
-    type Error = (); // TODO(thvdveld): implement errors
-
-    fn write_read(
-        &mut self,
-        _address: SevenBitAddress,
-        _bytes: &[u8],
-        _buffer: &mut [u8],
-    ) -> Result<(), Self::Error> {
-        todo!()
-    }
-}
-
-impl Read<SevenBitAddress> for I2cMaster<Enabled> {
-    type Error = ();
-
-    fn read(&mut self, address: SevenBitAddress, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        self.burst_read(address, buffer)
     }
 }

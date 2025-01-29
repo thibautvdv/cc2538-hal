@@ -1,6 +1,5 @@
 //! General Purpose Input / Output
 
-use core::convert::Infallible;
 use core::marker::PhantomData;
 
 pub use crate::hal::digital::*;
@@ -110,8 +109,8 @@ macro_rules! gpio {
             $({$alt_out_fun:ident: $alt_out_reg:ident },)+
         ]
     ) => {
-        use crate::hal::digital::blocking::InputPin;
-        use crate::hal::digital::blocking::OutputPin;
+        use crate::hal::digital::InputPin as InputPinTrait;
+        use crate::hal::digital::OutputPin as OutputPinTrait;
 
         $(
             use crate::pac::$GPIOX;
@@ -161,9 +160,11 @@ macro_rules! gpio {
             )+
         }
 
-        impl<MODE> OutputPin for PXx<Output<MODE>> {
-            type Error = Infallible;
+        impl<MODE> ErrorType for PXx<Output<MODE>> {
+            type Error = core::convert::Infallible;
+        }
 
+        impl<MODE> OutputPin for PXx<Output<MODE>> {
             fn set_high(&mut self) -> Result<(), Self::Error> {
                 match &self.gpio {
                     $(
@@ -191,14 +192,16 @@ macro_rules! gpio {
             }
         }
 
-        impl<MODE> InputPin for PXx<Input<MODE>> {
-            type Error = Infallible;
+        impl<MODE> ErrorType for PXx<Input<MODE>> {
+            type Error = core::convert::Infallible;
+        }
 
-            fn is_high(&self) -> Result<bool, Self::Error> {
+        impl<MODE> InputPinTrait for PXx<Input<MODE>> {
+            fn is_high(&mut self) -> Result<bool, Self::Error> {
                 Ok(!self.is_low()?)
             }
 
-            fn is_low(&self) -> Result<bool, Self::Error> {
+            fn is_low(&mut self) -> Result<bool, Self::Error> {
                 match &self.gpio {
                     $(
                     Gpio::$gpio_enum => {
@@ -216,12 +219,12 @@ macro_rules! gpio {
             pub mod $gpiox {
                 use paste::paste;
                 use core::marker::PhantomData;
-                use core::convert::Infallible;
 
                 use crate::pac::{$gpioy, $GPIOX};
 
-                use crate::hal::digital::blocking::OutputPin;
-                use crate::hal::digital::blocking::InputPin;
+                use crate::hal::digital::OutputPin as OutputPinTrait;
+                use crate::hal::digital::InputPin as InputPinTrait;
+                use crate::hal::digital::ErrorType;
 
                 use super::{
                     Input, Output, OutputEnable, PullUpEnable, PullDownEnable,
@@ -275,9 +278,11 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<MODE> OutputPin for $PXx<Output<MODE>> {
-                    type Error = Infallible;
+                impl<MODE> ErrorType for $PXx<Output<MODE>> {
+                    type Error = core::convert::Infallible;
+                }
 
+                impl<MODE> OutputPinTrait for $PXx<Output<MODE>> {
                     fn set_high(&mut self) -> Result<(), Self::Error> {
                         let addr = $GPIOX::ptr() as *mut u32;
                         let offset = 1 << self.pin;
@@ -293,14 +298,16 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<MODE> InputPin for $PXx<Input<MODE>> {
-                    type Error = Infallible;
+                impl<MODE> ErrorType for $PXx<Input<MODE>> {
+                    type Error = core::convert::Infallible;
+                }
 
-                    fn is_high(&self) -> Result<bool, Self::Error> {
+                impl<MODE> InputPinTrait for $PXx<Input<MODE>> {
+                    fn is_high(&mut self) -> Result<bool, Self::Error> {
                         Ok(!self.is_low()?)
                     }
 
-                    fn is_low(&self) -> Result<bool, Self::Error> {
+                    fn is_low(&mut self) -> Result<bool, Self::Error> {
                         let addr = $GPIOX::ptr() as *mut u32;
                         let offset = 1 << self.pin;
                         Ok(unsafe { *addr.offset(offset) == 0u32 })
@@ -460,10 +467,11 @@ macro_rules! gpio {
                         }
                     }
 
+                    impl ErrorType for $PXi<Output<OutputEnable>> {
+                        type Error = core::convert::Infallible;
+                    }
 
-                    impl OutputPin for $PXi<Output<OutputEnable>> {
-                        type Error = Infallible;
-
+                    impl OutputPinTrait for $PXi<Output<OutputEnable>> {
                         fn set_high(&mut self) -> Result<(), Self::Error> {
                             let addr = $GPIOX::ptr() as *mut u32;
                             let offset = 1 << $pin;
@@ -479,14 +487,16 @@ macro_rules! gpio {
                         }
                     }
 
-                    impl<MODE> InputPin for $PXi<Input<MODE>> {
-                        type Error = Infallible;
+                    impl<MODE> ErrorType for $PXi<Input<MODE>> {
+                        type Error = core::convert::Infallible;
+                    }
 
-                        fn is_high(&self) -> Result<bool, Self::Error> {
+                    impl<MODE> InputPinTrait for $PXi<Input<MODE>> {
+                        fn is_high(&mut self) -> Result<bool, Self::Error> {
                             Ok(!self.is_low()?)
                         }
 
-                        fn is_low(&self) -> Result<bool, Self::Error> {
+                        fn is_low(&mut self) -> Result<bool, Self::Error> {
                             let addr = $GPIOX::ptr() as *mut u32;
                             let offset = 1 << $pin;
                             Ok(unsafe { *addr.offset(offset) == 0  })

@@ -14,7 +14,8 @@ cc2538-pac = { version = "0.8.1", features = ["rt"] }
 cortex-m = { version = "0.7.7", features = ["inline-asm", "critical-section-single-core"] }
 cortex-m-rt = { version = "0.7.3", features = ["device"] }
 circular-queue = "0.2.6"
-embedded-hal = "=1.0.0-alpha.5"
+embedded-hal = "1.0.0"
+embedded-io = "0.6.1"
 nb = "1.1.0"
 paste = "1.0.14"
 panic-rtt-target = { version = "0.2.0" }

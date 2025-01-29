@@ -2,7 +2,7 @@
 
 use core::convert::Infallible;
 
-pub use crate::hal::delay::blocking::{DelayMs, DelayUs};
+pub use crate::hal::delay::DelayNs;
 use crate::sys_ctrl::ClockConfig;
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
@@ -23,38 +23,9 @@ impl Delay {
     }
 }
 
-impl DelayMs<u32> for Delay {
-    type Error = Infallible;
-
-    fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
-        self.delay_us(ms * 1_000)?;
-        Ok(())
-    }
-}
-
-impl DelayMs<u16> for Delay {
-    type Error = Infallible;
-
-    fn delay_ms(&mut self, ms: u16) -> Result<(), Self::Error> {
-        self.delay_ms(ms as u32)?;
-        Ok(())
-    }
-}
-
-impl DelayMs<u8> for Delay {
-    type Error = Infallible;
-
-    fn delay_ms(&mut self, ms: u8) -> Result<(), Self::Error> {
-        self.delay_ms(ms as u32)?;
-        Ok(())
-    }
-}
-
-impl DelayUs<u32> for Delay {
-    type Error = Infallible;
-
-    fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
-        let rvr = us * (self.clocks.sys_freq() / 1_000_000);
+impl DelayNs for Delay {
+    fn delay_ns(&mut self, ns: u32) {
+        let rvr = ns / 1000 * (self.clocks.sys_freq() / 1_000_000);
 
         debug_assert!(rvr < (1 << 24));
 
@@ -65,24 +36,5 @@ impl DelayUs<u32> for Delay {
         while !self.syst.has_wrapped() {}
 
         self.syst.disable_counter();
-        Ok(())
-    }
-}
-
-impl DelayUs<u16> for Delay {
-    type Error = Infallible;
-
-    fn delay_us(&mut self, us: u16) -> Result<(), Self::Error> {
-        self.delay_us(us as u32)?;
-        Ok(())
-    }
-}
-
-impl DelayUs<u8> for Delay {
-    type Error = Infallible;
-
-    fn delay_us(&mut self, us: u8) -> Result<(), Self::Error> {
-        self.delay_us(us as u32)?;
-        Ok(())
     }
 }

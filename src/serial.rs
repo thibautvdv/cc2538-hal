@@ -11,7 +11,9 @@ use crate::gpio::{AltFunc, PXx};
 use crate::sys_ctrl::ClockConfig;
 use crate::time::*;
 
-use crate::hal::serial;
+use embedded_io::ErrorType;
+use embedded_io::Read as SerialRead;
+use embedded_io::Write as SerialWrite;
 
 pub trait TxPin<UART> {}
 pub trait RxPin<UART> {}
@@ -132,49 +134,33 @@ macro_rules! uart {
                 }
             }
 
-            impl serial::nb::Read<u8> for Rx<$UARTX> {
-                type Error = nb::Error<Error>;
+            impl ErrorType for Rx<$UARTX> {
+                type Error = core::convert::Infallible;
+            }
 
-                fn read(&mut self) -> nb::Result<u8, Self::Error> {
-                    let uart = unsafe { &(*$UARTX::ptr()) };
+            impl SerialRead for Rx<$UARTX> {
+                fn read(&mut self, _buffer: &mut [u8]) -> Result<usize, Self::Error> {
+                    let _uart = unsafe { &(*$UARTX::ptr()) };
 
-                    Ok(uart.dr().read().data().bits())
+                    todo!();
                 }
             }
 
-            impl serial::blocking::Write<u8> for Tx<$UARTX> {
-                type Error = Error;
+            impl ErrorType for Tx<$UARTX> {
+                type Error = core::convert::Infallible;
+            }
 
+            impl SerialWrite for Tx<$UARTX> {
+                fn write(&mut self, _buffer: &[u8]) -> Result<usize, Self::Error> {
+                    let _uart = unsafe { &(*$UARTX::ptr()) };
 
-                fn flush(&mut self) -> Result<(), Self::Error> {
                     todo!();
                 }
 
-                fn write(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
-                    let uart = unsafe { &(*$UARTX::ptr()) };
-                    // Spin untill there is place in the FIFO
-                    while uart.fr().read().txff().bit_is_set() {}
+                fn flush(&mut self) -> Result<(), Self::Error> {
+                    let _uart = unsafe { &(*$UARTX::ptr()) };
 
-                    for b in buffer {
-                        uart.dr().write(|w| unsafe { w.data().bits(*b) });
-                    }
-
-                    Ok(())
-                }
-            }
-
-            impl Write for Tx<$UARTX> {
-                fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
-                    for c in s.chars() {
-                        self.write_char(c)?;
-                    }
-                    Ok(())
-                }
-
-                fn write_char(&mut self, c: char) -> Result<(), core::fmt::Error> {
-                    use serial::blocking::Write;
-                    self.write(&[c as u8]).unwrap();
-                    Ok(())
+                    todo!();
                 }
             }
         )+
