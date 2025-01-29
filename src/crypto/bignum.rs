@@ -125,35 +125,35 @@ impl<const MAX_LEN: usize> BigNum<MAX_LEN> {
 impl<'p> Crypto<'p> {
     #[inline]
     fn set_a_ptr(offset: usize) {
-        Self::pka().aptr.write(|w| unsafe { w.bits(offset as u32) });
+        Self::pka().aptr().write(|w| unsafe { w.bits(offset as u32) });
     }
 
     #[inline]
     fn set_b_ptr(offset: usize) {
-        Self::pka().bptr.write(|w| unsafe { w.bits(offset as u32) });
+        Self::pka().bptr().write(|w| unsafe { w.bits(offset as u32) });
     }
 
     #[inline]
     fn set_c_ptr(offset: usize) {
-        Self::pka().cptr.write(|w| unsafe { w.bits(offset as u32) });
+        Self::pka().cptr().write(|w| unsafe { w.bits(offset as u32) });
     }
 
     #[inline]
     fn set_d_ptr(offset: usize) {
-        Self::pka().dptr.write(|w| unsafe { w.bits(offset as u32) });
+        Self::pka().dptr().write(|w| unsafe { w.bits(offset as u32) });
     }
 
     #[inline]
     fn set_a_length(length: usize) {
         Self::pka()
-            .alength
+            .alength()
             .write(|w| unsafe { w.alength().bits(length as u16) });
     }
 
     #[inline]
     fn set_b_length(length: usize) {
         Self::pka()
-            .blength
+            .blength()
             .write(|w| unsafe { w.blength().bits(length as u16) });
     }
 
@@ -190,12 +190,12 @@ impl<'p> Crypto<'p> {
         Self::set_b_length(num2.len());
 
         // Start the add operation.
-        pka.function.write(|w| w.add().set_bit().run().set_bit());
+        pka.function().write(|w| w.add().set_bit().run().set_bit());
         while Self::is_pka_in_use() {}
 
-        let result_end = pka.msw.read().msw_address().bits() as usize;
+        let result_end = pka.msw().read().msw_address().bits() as usize;
 
-        if pka.msw.read().result_is_zero().bit_is_set() {
+        if pka.msw().read().result_is_zero().bit_is_set() {
             result.fill_with(|| 0);
             return Ok(0);
         }
@@ -241,13 +241,13 @@ impl<'p> Crypto<'p> {
         Self::set_b_length(num2.len());
 
         // Start the subtract operation.
-        pka.function
+        pka.function()
             .write(|w| w.subtract().set_bit().run().set_bit());
         while Self::is_pka_in_use() {}
 
-        let result_end = pka.msw.read().msw_address().bits() as usize;
+        let result_end = pka.msw().read().msw_address().bits() as usize;
 
-        if pka.msw.read().result_is_zero().bit_is_set() {
+        if pka.msw().read().result_is_zero().bit_is_set() {
             result.fill_with(|| 0);
             return Ok(0);
         }
@@ -298,12 +298,12 @@ impl<'p> Crypto<'p> {
         Self::set_a_length(a.len());
 
         // Start the subtract operation.
-        pka.function.write(|w| w.addsub().set_bit().run().set_bit());
+        pka.function().write(|w| w.addsub().set_bit().run().set_bit());
         while Self::is_pka_in_use() {}
 
-        let result_end = pka.msw.read().msw_address().bits() as usize;
+        let result_end = pka.msw().read().msw_address().bits() as usize;
 
-        if pka.msw.read().result_is_zero().bit_is_set() {
+        if pka.msw().read().result_is_zero().bit_is_set() {
             result.fill_with(|| 0);
             return Ok(0);
         }
@@ -350,12 +350,12 @@ impl<'p> Crypto<'p> {
         Self::set_b_length(num2.len());
 
         // Start the multiplaction operation.
-        pka.function
+        pka.function()
             .write(|w| w.multiply().set_bit().run().set_bit());
         while Self::is_pka_in_use() {}
 
-        let result_end = pka.msw.read().msw_address().bits() as usize;
-        if pka.msw.read().result_is_zero().bit_is_set() {
+        let result_end = pka.msw().read().msw_address().bits() as usize;
+        if pka.msw().read().result_is_zero().bit_is_set() {
             result.fill_with(|| 0);
             return Ok(0);
         }
@@ -403,10 +403,10 @@ impl<'p> Crypto<'p> {
         Self::set_b_length(num2.len());
 
         // Start the modulo operation.
-        pka.function.write(|w| w.modulo().set_bit().run().set_bit());
+        pka.function().write(|w| w.modulo().set_bit().run().set_bit());
         while Self::is_pka_in_use() {}
 
-        if pka.msw.read().result_is_zero().bit_is_set() {
+        if pka.msw().read().result_is_zero().bit_is_set() {
             result.fill_with(|| 0);
             return Ok(num2.len() + 1);
         }
@@ -439,11 +439,11 @@ impl<'p> Crypto<'p> {
         Self::set_b_length(num2.len());
 
         // Start the inverse module operation
-        pka.function
+        pka.function()
             .write(|w| unsafe { w.sequencer_operations().bits(0b111).run().set_bit() });
         while Self::is_pka_in_use() {}
 
-        let status = pka.shift.read().bits();
+        let status = pka.shift().read().bits();
         match status {
             0 => {
                 PkaRam::read_slice(&mut result[..num1.len()], offset);
@@ -496,17 +496,17 @@ impl<'p> Crypto<'p> {
         Self::set_b_length(modulus.len());
 
         // Start the exp operation.
-        pka.function
+        pka.function()
             .write(|w| unsafe { w.sequencer_operations().bits(0b010).run().set_bit() });
         while Self::is_pka_in_use() {}
 
-        let msw_val = pka.msw.read().msw_address().bits() as usize;
-        if msw_val == 0 || pka.msw.read().result_is_zero().bit_is_set() {
+        let msw_val = pka.msw().read().msw_address().bits() as usize;
+        if msw_val == 0 || pka.msw().read().result_is_zero().bit_is_set() {
             return;
         }
 
         let len1 = msw_val + 1;
-        let len2 = pka.dptr.read().bits() as usize;
+        let len2 = pka.dptr().read().bits() as usize;
         let len = len1 - len2;
 
         PkaRam::read_slice(&mut result[..len], offset);
@@ -535,11 +535,11 @@ impl<'p> Crypto<'p> {
         Self::set_a_length(num1.len());
 
         // Start the comparison operation.
-        pka.function
+        pka.function()
             .write(|w| w.compare().set_bit().run().set_bit());
         while Self::is_pka_in_use() {}
 
-        let compare = Crypto::pka().compare.read();
+        let compare = Crypto::pka().compare().read();
         if compare.a_equals_b().bit_is_set() {
             Some(Ordering::Equal)
         } else if compare.a_less_than_b().bit_is_set() {
