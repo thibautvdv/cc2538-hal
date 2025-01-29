@@ -9,9 +9,8 @@
 #![allow(non_snake_case)]
 
 use cc2538_pac as pac;
+use cortex_m::peripheral::DWT;
 use embedded_hal as hal;
-
-use pac::DWT;
 
 pub mod adc;
 pub mod crypto;
