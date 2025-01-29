@@ -1,9 +1,9 @@
 use core::cell::RefCell;
 
-use cc2538_pac::NVIC;
+use cortex_m::peripheral::NVIC;
 
 use crate::sys_ctrl::ClockConfig;
-use crate::{pac::SMWDTHROSC, sys_ctrl::ClockDiv};
+use crate::{pac::Smwdthrosc, sys_ctrl::ClockDiv};
 
 pub trait SleepTimerExt {
     type Parts;
@@ -13,10 +13,10 @@ pub trait SleepTimerExt {
 
 #[derive(Debug)]
 pub struct SleepTimer {
-    smwdthrosc: SMWDTHROSC,
+    smwdthrosc: Smwdthrosc,
 }
 
-impl SleepTimerExt for SMWDTHROSC {
+impl SleepTimerExt for Smwdthrosc {
     type Parts = SleepTimer;
 
     fn split(self) -> Self::Parts {
@@ -31,10 +31,10 @@ impl SleepTimer {
     #[inline]
     pub fn now(&self) -> u32 {
         //cortex_m::interrupt::free(|_| {
-        let mut val = self.smwdthrosc.st0.read().st0().bits() as u32;
-        val |= (self.smwdthrosc.st1.read().st1().bits() as u32) << 8;
-        val |= (self.smwdthrosc.st2.read().st2().bits() as u32) << 16;
-        val |= (self.smwdthrosc.st3.read().st3().bits() as u32) << 24;
+        let mut val = self.smwdthrosc.st0().read().st0().bits() as u32;
+        val |= (self.smwdthrosc.st1().read().st1().bits() as u32) << 8;
+        val |= (self.smwdthrosc.st2().read().st2().bits() as u32) << 16;
+        val |= (self.smwdthrosc.st3().read().st3().bits() as u32) << 24;
         val
         //})
     }
@@ -43,20 +43,20 @@ impl SleepTimer {
     fn set_ticks(&self, t: u32) {
         debug_assert!(t > self.now());
 
-        while self.smwdthrosc.stload.read().stload().bit_is_clear() {}
+        while self.smwdthrosc.stload().read().stload().bit_is_clear() {}
 
         cortex_m::interrupt::free(|_| unsafe {
             self.smwdthrosc
-                .st3
+                .st3()
                 .write(|w| w.st3().bits(((t >> 24) & 0xff) as u8));
             self.smwdthrosc
-                .st2
+                .st2()
                 .write(|w| w.st2().bits(((t >> 16) & 0xff) as u8));
             self.smwdthrosc
-                .st1
+                .st1()
                 .write(|w| w.st1().bits(((t >> 8) & 0xff) as u8));
             self.smwdthrosc
-                .st0
+                .st0()
                 .write(|w| w.st0().bits((t & 0xff) as u8));
         });
 
