@@ -6,7 +6,7 @@ use core::{marker::PhantomData, time::Duration};
 
 use cortex_m::asm;
 
-use crate::pac::{sys_ctrl, SYS_CTRL};
+use crate::pac::{sys_ctrl, SysCtrl as SysCtrlPac};
 use crate::time::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,7 +46,7 @@ pub struct Unconfigured;
 pub struct Frozen;
 
 pub struct SysCtrl<STATE> {
-    sys_ctrl: SYS_CTRL,
+    sys_ctrl: SysCtrlPac,
     config: ClockConfig,
     _state: PhantomData<STATE>,
 }
@@ -82,7 +82,7 @@ macro_rules! impl_sys_ctrl {
             fn constrain(self) -> Self::Parts;
         }
 
-        impl SysCtrlExt for SYS_CTRL {
+        impl SysCtrlExt for SysCtrlPac {
             type Parts = SysCtrl<Unconfigured>;
             fn constrain(self) -> Self::Parts {
                 SysCtrl {
@@ -129,41 +129,41 @@ macro_rules! impl_sys_ctrl {
             $(
             pub fn [<enable_ $new_name _in_active_mode>](&mut self) {
                 self.config.$new_name.active_mode = true;
-                self.sys_ctrl.$active_reg.modify(|_, w| w.$name().set_bit());
+                self.sys_ctrl.$active_reg().modify(|_, w| w.$name().set_bit());
             }
 
             pub fn [<disable_ $new_name _in_active_mode>](&mut self) {
                 self.config.$new_name.active_mode = false;
-                self.sys_ctrl.$active_reg.modify(|_, w| w.$name().clear_bit());
+                self.sys_ctrl.$active_reg().modify(|_, w| w.$name().clear_bit());
             }
 
             pub fn [<enable_ $new_name _in_sleep_mode>](&mut self) {
                 self.config.$new_name.sleep_mode = true;
-                self.sys_ctrl.$sleep_reg.modify(|_, w| w.$name().set_bit());
+                self.sys_ctrl.$sleep_reg().modify(|_, w| w.$name().set_bit());
             }
 
             pub fn [<disable_ $new_name _in_sleep_mode>](&mut self) {
                 self.config.$new_name.sleep_mode = false;
-                self.sys_ctrl.$sleep_reg.modify(|_, w| w.$name().clear_bit());
+                self.sys_ctrl.$sleep_reg().modify(|_, w| w.$name().clear_bit());
             }
 
             pub fn [<enable_ $new_name _in_deep_sleep_mode>](&mut self) {
                 self.config.$new_name.deep_sleep_mode = true;
-                self.sys_ctrl.$deep_sleep_reg.modify(|_, w| w.$name().set_bit());
+                self.sys_ctrl.$deep_sleep_reg().modify(|_, w| w.$name().set_bit());
             }
 
             pub fn [<disable_ $new_name _in_deep_sleep_mode>](&mut self) {
                 self.config.$new_name.deep_sleep_mode = false;
-                self.sys_ctrl.$deep_sleep_reg.modify(|_, w| w.$name().clear_bit());
+                self.sys_ctrl.$deep_sleep_reg().modify(|_, w| w.$name().clear_bit());
             }
             )+
 
             $(
             pub fn [<reset_ $new_reset_name>](&mut self) {
-                self.sys_ctrl.$reset_reg.modify(|_, w| w.$reset_name().set_bit());
+                self.sys_ctrl.$reset_reg().modify(|_, w| w.$reset_name().set_bit());
             }
             pub fn [<clear_reset_ $new_reset_name>](&mut self) {
-                self.sys_ctrl.$reset_reg.modify(|_, w| w.$reset_name().clear_bit());
+                self.sys_ctrl.$reset_reg().modify(|_, w| w.$reset_name().clear_bit());
             }
             )+
         }
@@ -188,11 +188,11 @@ macro_rules! impl_sys_ctrl {
             pub fn freeze(self) -> SysCtrl<Frozen> {
                 if self.config.use_crystal_osc32k {
                     self.sys_ctrl
-                        .clock_ctrl
+                        .clock_ctrl()
                         .modify(|_, w| w.osc32k().clear_bit());
                 }
 
-                self.sys_ctrl.clock_ctrl.modify(|_, w| unsafe {
+                self.sys_ctrl.clock_ctrl().modify(|_, w| unsafe {
                     w.amp_det()
                         .set_bit()
                         .osc()
@@ -202,11 +202,11 @@ macro_rules! impl_sys_ctrl {
                 });
 
                 self.sys_ctrl
-                    .clock_ctrl
+                    .clock_ctrl()
                     .modify(|_, w| unsafe { w.io_div().bits(self.config.io_div as u8) });
 
                 // Wait until the 32Mhz is stable.
-                while self.sys_ctrl.clock_sta.read().osc().bit_is_set() {}
+                while self.sys_ctrl.clock_sta().read().osc().bit_is_set() {}
 
                 // Return all frequencies
                 SysCtrl {
